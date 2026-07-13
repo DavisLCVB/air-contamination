@@ -9,4 +9,7 @@ dependencies = [
   "jupyter>=1.1.1",
   "numpy>=2.5.1",
   "pandas>=3.0.3",
+  "pandas-stubs>=3.0.3.260530",
+  "pyarrow>=25.0.0",
+  "quarto>=0.1.0",
 ]

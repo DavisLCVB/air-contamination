@@ -11,3 +11,4 @@ wheels/
 .obsidian
 .atl
 docs
+data/*.parquet
