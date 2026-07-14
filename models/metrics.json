@@ -1,0 +1,88 @@
+{
+  "generado_utc": "2026-07-14T03:16:45+00:00",
+  "seed": 96,
+  "umbral_eca_pm25": 50.0,
+  "umbral_decision": 0.5,
+  "test_size": 0.3,
+  "solo_real": true,
+  "features": [
+    "pm_10",
+    "so2",
+    "no2",
+    "o3",
+    "co"
+  ],
+  "objetivo": "pm_25",
+  "n_train": 224146,
+  "n_test": 96063,
+  "balance_positivos_pct": 7.935,
+  "mejor_modelo": "rf_classweight",
+  "modelos": {
+    "rf_classweight": {
+      "nombre": "rf_classweight",
+      "umbral": 0.5,
+      "accuracy": 0.9240082029501473,
+      "roc_auc": 0.9066624255026252,
+      "matriz_confusion": {
+        "tn": 85068,
+        "fp": 3372,
+        "fn": 3928,
+        "tp": 3695
+      },
+      "clase_0_baja": {
+        "precision": 0.955863184862241,
+        "recall": 0.9618724559023066,
+        "f1": 0.9588584052841588
+      },
+      "clase_1_alta": {
+        "precision": 0.5228526956275648,
+        "recall": 0.48471730289912107,
+        "f1": 0.5030633083730429
+      }
+    },
+    "xgb_scaleposw": {
+      "nombre": "xgb_scaleposw",
+      "umbral": 0.5,
+      "accuracy": 0.8106242778176821,
+      "roc_auc": 0.8993524315206196,
+      "matriz_confusion": {
+        "tn": 71663,
+        "fp": 16777,
+        "fn": 1415,
+        "tp": 6208
+      },
+      "clase_0_baja": {
+        "precision": 0.9806371274528586,
+        "recall": 0.8103007688828584,
+        "f1": 0.8873685904976535
+      },
+      "clase_1_alta": {
+        "precision": 0.2700891886012617,
+        "recall": 0.8143775416502689,
+        "f1": 0.40564558285415575
+      }
+    },
+    "rf_smote": {
+      "nombre": "rf_smote",
+      "umbral": 0.5,
+      "accuracy": 0.8829518128728022,
+      "roc_auc": 0.8979998742765488,
+      "matriz_confusion": {
+        "tn": 79759,
+        "fp": 8681,
+        "fn": 2563,
+        "tp": 5060
+      },
+      "clase_0_baja": {
+        "precision": 0.9688661597142927,
+        "recall": 0.9018430574400723,
+        "f1": 0.9341539686815568
+      },
+      "clase_1_alta": {
+        "precision": 0.36824103049268614,
+        "recall": 0.6637806637806638,
+        "f1": 0.47369406478187603
+      }
+    }
+  }
+}

@@ -5,11 +5,36 @@ description = "Análisis predictivo de los contaminantes del aire de Lima metrop
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  # --- Base / entorno (Rol A, ya existentes) ---
   "ipykernel>=7.3.0",
   "jupyter>=1.1.1",
-  "numpy>=2.5.1",
+  "numpy>=2.4,<2.5",
   "pandas>=3.0.3",
   "pandas-stubs>=3.0.3.260530",
   "pyarrow>=25.0.0",
+  "numba>=0.64",
   "quarto>=0.1.0",
+  # --- Usadas por Rol A pero NO declaradas hasta ahora (deuda que se cierra) ---
+  # El notebook 01_eda.ipynb ya importa sklearn, matplotlib y seaborn;
+  # funcionaban solo porque estaban en el entorno local, no por estar declaradas.
+  "scikit-learn>=1.5",
+  "matplotlib>=3.9",
+  "seaborn>=0.13",
+  # --- Modelado + XAI (Rol B) ---
+  "xgboost>=2.1",            # segundo modelo obligatorio (RF vs XGBoost)
+  "imbalanced-learn>=0.13",  # SMOTE para el desbalance ~92/8
+  "shap>=0.46",              # summary_plot + force_plot (numpy 2.x soportado desde 0.46)
+  "joblib>=1.4",             # persistencia determinista de los modelos entrenados
+  "streamlit>=1.59.1",
 ]
+
+[project.optional-dependencies]
+# LIME es opcional: la rúbrica exige "SHAP o LIME", y el Rol B usa SHAP como
+# método principal. Se instala solo si se quiere el complemento:  uv sync --extra lime
+lime = ["lime>=0.2"]
+
+[tool.uv]
+# Se deja constancia para el equipo: tras editar dependencias hay que regenerar
+# el lockfile con `uv lock` (o `uv sync`, que también lo actualiza). El uv.lock
+# versionado es lo que garantiza que los 4 roles resuelvan EXACTAMENTE las mismas
+# versiones -> reproducibilidad defendible frente al profesor.

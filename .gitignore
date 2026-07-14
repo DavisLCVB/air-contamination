@@ -12,3 +12,15 @@ wheels/
 .atl
 docs
 data/*.parquet
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Artefactos de modelado (Rol B) — regenerables con:
+#   uv run python src/models.py
+# Se ignoran los binarios y las figuras (pesados y reproducibles), pero
+# models/metrics.json SÍ se versiona: son las métricas auditables del Panel 2
+# y del Reporte PDF, y deben poder revisarse sin reentrenar.
+models/*.pkl
+models/*.joblib
+models/*.png
