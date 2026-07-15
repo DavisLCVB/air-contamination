@@ -25,6 +25,8 @@ dependencies = [
   "imbalanced-learn>=0.13",  # SMOTE para el desbalance ~92/8
   "shap>=0.46",              # summary_plot + force_plot (numpy 2.x soportado desde 0.46)
   "joblib>=1.4",             # persistencia determinista de los modelos entrenados
+  # --- Series temporales (Rol C) ---
+  "statsmodels>=0.14.2",     # Holt-Winters (ExponentialSmoothing) + SARIMAX
   "streamlit>=1.59.1",
 ]
 

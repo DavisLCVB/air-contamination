@@ -1,0 +1,29 @@
+# requirements.txt — deploy en Streamlit Cloud (pip).
+# Espeja las dependencias de pyproject.toml/uv.lock para que la app corra igual en la nube.
+# En Streamlit Cloud fijar Python 3.12 (Advanced settings → Python version).
+#
+# Versiones verificadas juntas: numpy 2.4.x · pandas 3.0.x · statsmodels 0.14.x ·
+# scikit-learn 1.9.x · streamlit 1.59.x · matplotlib 3.11.x.
+
+# --- núcleo de datos ---
+numpy>=2.4,<2.5          # pin de Rol B: numba no soporta numpy>=2.5 (CONTEXTO_ROL_B §9)
+pandas>=2.2
+pyarrow>=16             # parquet (data/*.parquet)
+scipy>=1.13
+
+# --- Rol A: EDA + clustering ---
+scikit-learn>=1.5
+matplotlib>=3.9
+
+# --- Rol B: modelado + XAI ---
+xgboost>=2.1
+imbalanced-learn>=0.13  # SMOTE
+shap>=0.46
+numba>=0.64             # dependencia de shap; este rango compila en py3.12 con numpy<2.5
+joblib>=1.4
+
+# --- Rol C: series temporales ---
+statsmodels>=0.14.2     # Holt-Winters (ExponentialSmoothing) + SARIMAX
+
+# --- app / dashboard ---
+streamlit>=1.40

@@ -1,0 +1,69 @@
+{
+  "generado_utc": "2026-07-15T01:00:35+00:00",
+  "seed": 96,
+  "objetivo": "pm_25",
+  "estacion": "TODAS",
+  "freq": "MS",
+  "estacionalidad": 12,
+  "periodos_test": 12,
+  "horizonte": 6,
+  "mejor_modelo": "naive_estacional",
+  "n_serie": 67,
+  "n_train": 55,
+  "n_test": 12,
+  "modelos": {
+    "naive_estacional": {
+      "mape": 8.180112191487252,
+      "rmse": 2.342420352618286,
+      "mae": 2.0386928970493963
+    },
+    "sarima": {
+      "mape": 11.297568271240802,
+      "rmse": 3.262191460126802,
+      "mae": 2.909978017192921
+    },
+    "holt_winters": {
+      "mape": 11.855078410883086,
+      "rmse": 3.2955440921801067,
+      "mae": 3.02990640805807
+    }
+  },
+  "pronostico_futuro": [
+    {
+      "fecha": "2020-05-01",
+      "yhat": 29.737595310638582,
+      "lo": null,
+      "hi": null
+    },
+    {
+      "fecha": "2020-06-01",
+      "yhat": 31.12495737410257,
+      "lo": null,
+      "hi": null
+    },
+    {
+      "fecha": "2020-07-01",
+      "yhat": 25.371550611834344,
+      "lo": null,
+      "hi": null
+    },
+    {
+      "fecha": "2020-08-01",
+      "yhat": 27.9713267115671,
+      "lo": null,
+      "hi": null
+    },
+    {
+      "fecha": "2020-09-01",
+      "yhat": 27.262738737010523,
+      "lo": null,
+      "hi": null
+    },
+    {
+      "fecha": "2020-10-01",
+      "yhat": 28.962441968127166,
+      "lo": null,
+      "hi": null
+    }
+  ]
+}
