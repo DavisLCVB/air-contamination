@@ -12,7 +12,7 @@ a partir del resto de contaminantes, con manejo de desbalance e interpretabilida
 |-|-|-|-|
 | Cartagena Valera Brush, Davis Leonardo | davis.cartagena@unmsm.edu.pe | 22200193 | A — Datos y EDA |
 | Lavado Torres, Gianmarco Gabriel | gianmarco.lavado@unmsm.edu.pe | 22200025 | B — Modelado y XAI |
-| Pillaca Macahaca, Richard Josue |  |  | C — Series e infra |
+| Chilon Tintaya Monica Isabel |  |  | C — Series e infra |
 
 
 ## Roles y responsabilidades
