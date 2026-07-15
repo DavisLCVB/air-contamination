@@ -130,9 +130,35 @@ def construir_dataset_modelado(
 
 
 def dividir(
-    X: pd.DataFrame, y: pd.Series, test_size: float = TEST_SIZE
+    X: pd.DataFrame,
+    y: pd.Series,
+    test_size: float = TEST_SIZE,
+    grupos: pd.Series | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """`train_test_split` estratificado y reproducible (`random_state=SEED`)."""
+    """Split train/test, reproducible (`random_state=SEED`).
+
+    Parameters
+    ----------
+    grupos:
+        Si se pasa (p.ej. un día calendario por fila, alineado al índice de
+        `X`), usa `GroupShuffleSplit`: todas las filas del mismo grupo caen
+        enteras en train o en test. Necesario porque los datos son horarios
+        y la autocorrelación lag-1h medida en este dataset es ~0.92 — un
+        `train_test_split` aleatorio deja horas casi gemelas repartidas entre
+        train y test, y el modelo "interpola" en vez de generalizar, lo que
+        infla ROC-AUC/F1 de forma optimista. Sin `grupos`, cae al split
+        aleatorio estratificado de siempre (usado por el smoke test).
+    """
+    if grupos is not None:
+        from sklearn.model_selection import GroupShuffleSplit
+
+        gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=SEED)
+        idx_train, idx_test = next(gss.split(X, y, groups=grupos.loc[X.index]))
+        return (
+            X.iloc[idx_train], X.iloc[idx_test],
+            y.iloc[idx_train], y.iloc[idx_test],
+        )
+
     from sklearn.model_selection import train_test_split
 
     return train_test_split(
@@ -175,6 +201,8 @@ def entrenar_rf(
     y_train: pd.Series,
     n_estimators: int = 300,
     balanceo: str = "class_weight",
+    max_depth: int = 20,
+    min_samples_leaf: int = 20,
 ) -> Any:
     """Entrena un Random Forest.
 
@@ -183,6 +211,12 @@ def entrenar_rf(
     balanceo:
         ``'class_weight'`` usa `class_weight='balanced'`; cualquier otro valor
         (p.ej. ``'ninguno'`` cuando ya se aplicó SMOTE afuera) entrena sin pesos.
+    max_depth, min_samples_leaf:
+        Sin tope, sklearn crece árboles hasta hojas puras: sobre ~700k filas
+        eso produce ~300 árboles gigantes (rf.pkl > 600MB, por encima del
+        límite de 100MB de GitHub) y aumenta el riesgo de sobreajuste. Estos
+        valores acotan el tamaño del artefacto sin sacrificar F1 de forma
+        relevante (ver models/metrics.json tras reentrenar).
 
     Notes
     -----
@@ -197,6 +231,8 @@ def entrenar_rf(
         random_state=SEED,
         n_jobs=-1,
         class_weight=class_weight,
+        max_depth=max_depth,
+        min_samples_leaf=min_samples_leaf,
     )
     modelo.fit(X_train, y_train)
     return modelo
@@ -494,15 +530,19 @@ def entrenar_y_evaluar_todo(
     conjuntos de test (para SHAP y para la matriz de confusión).
     """
     X, y = construir_dataset_modelado(df, umbral=umbral_eca)
-    X_train, X_test, y_train, y_test = dividir(X, y, test_size=test_size)
+    # Split por día calendario (no por fila) para evitar fuga de bloque: ver
+    # docstring de `dividir`. `df` conserva el mismo índice que `X` porque
+    # `construir_dataset_modelado` solo filtra filas, nunca reindexa.
+    grupos = df.loc[X.index, "fecha_hora"].dt.normalize()
+    X_train, X_test, y_train, y_test = dividir(X, y, test_size=test_size, grupos=grupos)
 
     # 1) RF con class_weight='balanced'
-    rf = entrenar_rf(X_train, y_train, balanceo="class_weight")
+    rf = entrenar_rf(X_train, y_train, n_estimators=150, balanceo="class_weight")
     # 2) XGBoost con scale_pos_weight
     xgb = entrenar_xgb(X_train, y_train, balanceo="scale_pos_weight")
     # 3) RF + SMOTE (para mostrar el efecto del sobremuestreo en el recall)
     X_smote, y_smote = aplicar_smote(X_train, y_train)
-    rf_smote = entrenar_rf(X_smote, y_smote, balanceo="ninguno")
+    rf_smote = entrenar_rf(X_smote, y_smote, n_estimators=150, balanceo="ninguno")
 
     modelos = {
         "rf_classweight": rf,
@@ -514,7 +554,15 @@ def entrenar_y_evaluar_todo(
         for clave, m in modelos.items()
     }
     tabla = comparar_modelos(resultados)
-    mejor = tabla.index[0]
+    # `mejor` decide qué modelo sirve el Panel 2 en producción: SOLO carga
+    # rf.pkl (rf_classweight) y xgb.pkl desde disco (ver panel_predictivo.py
+    # `_cargar_artefactos`). rf_smote.pkl no se embarca en el deploy (queda en
+    # .gitignore) porque no aporta una mejora de F1 significativa sobre
+    # rf_classweight y solo se conserva aquí como referencia académica del
+    # efecto del sobremuestreo. Si "mejor" apuntara a rf_smote, la UI
+    # mostraría sus métricas pero serviría silenciosamente rf_classweight.
+    candidatos_desplegables = tabla.loc[tabla.index != "rf_smote"]
+    mejor = candidatos_desplegables.index[0]
 
     return {
         "modelos": modelos,

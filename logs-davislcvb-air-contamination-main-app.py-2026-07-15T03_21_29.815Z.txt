@@ -1,0 +1,166 @@
+
+[     UTC     ] Logs for air-contamination-tdcznjulm5k9vypadddn9r.streamlit.app/
+────────────────────────────────────────────────────────────────────────────────────────
+[03:11:25] 🚀 Starting up repository: 'air-contamination', branch: 'main', main module: 'app.py'
+[03:11:25] 🐙 Cloning repository...
+[03:11:25] 🐙 Cloning into '/mount/src/air-contamination'...
+
+[03:11:26] 🐙 Cloned repository!
+[03:11:26] 🐙 Pulling code changes from Github...
+[03:11:26] 📦 Processing dependencies...
+Prepared 146 packages in 9.79s
+Installed 146 packages in 729ms
+ + altair==6.2.2
+ + anyio==4.14.2
+ + argon2-cffi==25.1.0
+ + argon2-cffi-bindings==25.1.0
+ + arrow==1.4.0
+ + asttokens==3.0.2
+ + async-lru==2.3.0
+ + attrs==[2026-07-15 03:11:37.424199] 26.1.0
+ + babel==2.18.0
+ + beautifulsoup4==4.15.0
+ + bleach==6.4.0
+ + blinker==1.9.0
+ + cachetools==7.1.4
+ + certifi[2026-07-15 03:11:37.424393] ==2026.6.17
+ + cffi==2.1.0
+ + charset-normalizer==3.4.9
+ + click==8.4.2
+ + [2026-07-15 03:11:37.424544] cloudpickle==3.1.2
+ + comm==0.2.3
+ + contourpy==1.3.3
+ + cycler==0.12.1
+ [2026-07-15 03:11:37.424742] + debugpy==1.8.21
+ + decorator==5.3.1
+ + defusedxml==0.7.1
+ +[2026-07-15 03:11:37.424910]  executing==2.2.1
+ + fastjsonschema==2.21.2
+ + fonttools==4.63.0
+ [2026-07-15 03:11:37.425125] + fqdn==1.5.1
+ + gitdb==4.0.12
+ + gitpython==3.1.51
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httptools==0.8.0[2026-07-15 03:11:37.425674] 
+ + httpx==0.28.1
+ + idna==3.18
+ +[2026-07-15 03:11:37.425903]  imbalanced-learn==0.14.2
+ + ipykernel==7.3.0
+ + ipython==9.15.0
+ + ipython-pygments-lexers[2026-07-15 03:11:37.426133] ==1.1.1
+ + ipywidgets==8.1.8
+ + isoduration==20.11.0
+ + itsdangerous==2.2.0
+ + jedi==0.20.0
+ [2026-07-15 03:11:37.426297] + jinja2==3.1.6
+ + joblib==1.5.3
+ + json5==0.15.0
+ + jsonpointer==3.1.1
+ + jsonschema==4.26.0
+ +[2026-07-15 03:11:37.426439]  jsonschema-specifications==2025.9.1
+ + jupyter==1.1.1
+ + jupyter-builder==1.1.0
+ + jupyter-client==8.9.1[2026-07-15 03:11:37.426629] 
+ + jupyter-console==6.6.3
+ + jupyter-core==5.9.1
+ + jupyter-events==0.12.1
+ + jupyter-lsp==2.3.1[2026-07-15 03:11:37.426797] 
+ + jupyter-server==2.20.0
+ + jupyter-server-terminals==0.5.4
+ + jupyterlab==4.6.1
+ + jupyterlab-pygments==0.3.0[2026-07-15 03:11:37.426946] 
+ + jupyterlab-server==2.28.0
+ + jupyterlab-widgets==3.0.16
+ + kiwisolver==1.5.0
+ + lark==1.3.1
+ +[2026-07-15 03:11:37.427071]  llvmlite==0.48.0
+ + markupsafe==3.0.3
+ + matplotlib==3.11.0
+ + matplotlib-inline==0.2.2
+ + mistune==3.3.3[2026-07-15 03:11:37.427211] 
+ + narwhals==2.24.0
+ + nbclient==0.11.0
+ + nbconvert==7.17.1
+ + nbformat==5.10.4
+ + [2026-07-15 03:11:37.427343] nest-asyncio2==1.7.2
+ + notebook==7.6.0
+ + notebook-shim==0.2.4
+ + numba==0.66.0
+ + numpy[2026-07-15 03:11:37.427460] ==2.4.6
+ + nvidia-nccl-cu12==2.30.7
+ + packaging==26.2
+ + pandas==3.0.3
+ + pandas-stubs==3.0.3.260530
+ [2026-07-15 03:11:37.427645] + pandocfilters==1.5.1
+ + parso==0.8.7
+ + patsy==1.0.2
+ + pexpect==4.9.0
+ [2026-07-15 03:11:37.427795] + pillow==12.3.0
+ + platformdirs==4.10.0
+ + prometheus-client==0.25.0
+ + prompt-toolkit==[2026-07-15 03:11:37.427919] 3.0.52
+ + protobuf==7.35.1
+ + psutil==7.2.2
+ [2026-07-15 03:11:37.428058] + ptyprocess==0.7.0
+ + pure-eval==0.2.3
+ + [2026-07-15 03:11:37.428197] pyarrow==25.0.0
+ + pycparser==3.0
+ +[2026-07-15 03:11:37.428309]  pydeck==0.9.3[2026-07-15 03:11:37.428414] 
+ + pygments==2.20.0
+ + pyparsing==3.3.2
+ + python-dateutil==2.9.0[2026-07-15 03:11:37.428519] .post0
+ + python-json-logger==4.1.0
+ + python-multipart==0.0.32
+ + pyyaml==6.0.3
+ + pyzmq==27.1.0
+ + quarto==0.1.0
+ + referencing==0.37.0
+ +[2026-07-15 03:11:37.428665]  requests==2.34.2
+ + rfc3339-validator==0.1.4
+ + rfc3986-validator==0.1.1
+ + rfc3987-syntax==1.1.0[2026-07-15 03:11:37.428817] 
+ + rpds-py==2026.6.3
+ + scikit-learn==1.9.0
+ +[2026-07-15 03:11:37.429064]  scipy==1.18.0
+ + seaborn==0.13.2
+ [2026-07-15 03:11:37.429205] + send2trash==2.1.0
+ + shap==0.52.0
+ [2026-07-15 03:11:37.429342] + six==1.17.0
+ + sklearn-compat==0.1.6
+ +[2026-07-15 03:11:37.429448]  slicer==0.0.8
+ + smmap==5.0.3
+ [2026-07-15 03:11:37.429558] + soupsieve==2.8.4
+ + stack-data==0.6.3
+ +[2026-07-15 03:11:37.429704]  starlette==1.3.1
+ + statsmodels==0.14.6
+ +[2026-07-15 03:11:37.429826]  streamlit==1.59.1
+ + tenacity==9.1.4
+ + terminado[2026-07-15 03:11:37.429924] ==0.18.1
+ + threadpoolctl==3.6.0
+ + tinycss2==[2026-07-15 03:11:37.430027] 1.5.1
+ + toml==0.10.2
+ + tornado==6.5.7[2026-07-15 03:11:37.430138] 
+ + tqdm==4.68.4
+ + traitlets==5.15.1[2026-07-15 03:11:37.430242] 
+ + typing-extensions==4.16.0
+ + tzdata==2026.3
+ +[2026-07-15 03:11:37.430355]  uri-template==1.3.0
+ + urllib3==2.7.0
+ + uvicorn==0.51.0
+ + watchdog==[2026-07-15 03:11:37.430454] 6.0.0
+ + wcwidth==0.8.2
+ + webcolors==25.10.0[2026-07-15 03:11:37.430543] 
+ + webencodings==0.5.1
+ + websocket-client==1.9.0[2026-07-15 03:11:37.430693] 
+ + websockets==16.1
+ + widgetsnbextension==4.0.15[2026-07-15 03:11:37.430807] 
+ + xgboost==3.3.0
+[03:11:38] 🐍 Python dependencies were installed from /mount/src/air-contamination/uv.lock using uv-sync.
+[03:11:38] 📦 WARN: More than one requirements file detected in the repository. Available options: uv-sync /mount/src/air-contamination/uv.lock, uv /mount/src/air-contamination/requirements.txt, poetry /mount/src/air-contamination/pyproject.toml. Used: uv-sync with /mount/src/air-contamination/uv.lock
+Check if streamlit is installed
+Streamlit is already installed
+[03:11:39] 📦 Processed dependencies!
+2026-07-15 03:11:41.625 Uvicorn server started on :::8501
+
+
