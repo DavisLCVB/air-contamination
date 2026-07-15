@@ -126,7 +126,3 @@ uv run streamlit run app.py
 - **Sin fuga:** el pronóstico usa solo el pasado de la propia serie. Cifras auditables en
   `models/forecast_metrics.json`.
 
-> **Nota de integración:** los Paneles 1 (EDA, Rol A) y 4 (CRUD, Rol D) aún no están
-> integrados. Mientras no exista su módulo, `app.py` muestra un aviso en esa pestaña en
-> lugar de romperse. Para integrarlos, crear `src/panel_eda.py` y `src/panel_crud.py`, cada
-> uno con una función `render(df=None)`.
