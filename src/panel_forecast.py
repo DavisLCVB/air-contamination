@@ -88,7 +88,7 @@ def render(df=None):
     m3.metric("RMSE (test)", f"{fila_mejor['rmse']:.2f}")
     m4.metric("Puntos de la serie", f"{len(paq['serie'])}")
 
-    st.pyplot(F.graficar(paq), width="stretch")
+    st.pyplot(F.graficar(paq), use_container_width=True)
 
     izq, der = st.columns([1, 1])
     with izq:

@@ -110,7 +110,7 @@ def render(df=None):
     ax1.set_xticklabels(pm_est.index, rotation=45, ha="right", fontsize=8)
     ax1.set_ylabel("PM2.5 (µg/m³)")
     fig1.tight_layout()
-    st.pyplot(fig1, width="stretch")
+    st.pyplot(fig1, use_container_width=True)
 
     # --- Correlación entre contaminantes ---------------------------------------------
     if len(cols) >= 2:
@@ -128,7 +128,7 @@ def render(df=None):
                          fontsize=7, color="black")
         fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
         fig2.tight_layout()
-        st.pyplot(fig2, width="stretch")
+        st.pyplot(fig2, use_container_width=True)
 
     # --- Clustering K-means ----------------------------------------------------------
     st.markdown("### Clustering de estaciones (K-means)")
@@ -147,12 +147,12 @@ def render(df=None):
     ax3.set_ylabel("PCA 2")
     ax3.set_title(f"Estaciones agrupadas por perfil de contaminación (k={k})")
     fig3.tight_layout()
-    st.pyplot(fig3, width="stretch")
+    st.pyplot(fig3, use_container_width=True)
 
     tabla = perfil.copy()
     tabla.insert(0, "cluster", labels)
     st.dataframe(tabla.sort_values("cluster").style.format("{:.1f}", subset=perfil.columns),
-                 width="stretch")
+                 use_container_width=True)
 
     with st.expander("Notas de modelado (Rol A)"):
         st.markdown(
