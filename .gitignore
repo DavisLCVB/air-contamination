@@ -43,3 +43,5 @@ models/figuras/*.png
 !models/confusion_matrix.png
 !models/rf_classweight_shap_summary.png
 !models/rf_classweight_shap_force.png
+.agents
+.claude

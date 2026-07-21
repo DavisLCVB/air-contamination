@@ -1,9 +1,9 @@
-# Tema visual del dashboard — paleta Nord, consistente con src/theme.py
-# y los colores ya usados en los gráficos matplotlib (panel_eda.py, forecast.py).
+# Tema visual del dashboard — Catppuccin Mocha (oscuro), consistente con los
+# colores declarados en src/theme.py para los gráficos matplotlib.
 [theme]
-base = "light"
-primaryColor = "#5e81ac"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#eceff4"
-textColor = "#2e3440"
+base = "dark"
+primaryColor = "#cba6f7"            # mauve — botones, tabs activas, sliders
+backgroundColor = "#1e1e2e"         # base
+secondaryBackgroundColor = "#313244"  # surface0 — sidebar, cards, widgets
+textColor = "#cdd6f4"                # text
 font = "sans-serif"

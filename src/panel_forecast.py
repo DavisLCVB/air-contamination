@@ -50,12 +50,12 @@ def _computar(estacion, freq, periodos_test, horizonte, recortar):
 
 def render(df=None):
     """Dibuja el Panel 3. `df` se acepta por el contrato de app.py pero el cómputo se cachea aparte."""
-    st.subheader("📈 Panel 3 · Serie temporal y pronóstico de PM2.5")
+    st.subheader(":material/show_chart: Panel 3 · Serie temporal y pronóstico de PM2.5")
     st.caption("Pronóstico ≥ 4 períodos con MAPE y RMSE. Modelos: naive estacional, "
                "Holt-Winters y SARIMA; se elige el de menor MAPE en el hold-out cronológico.")
 
     with st.container(border=True):
-        st.markdown("**⚙️ Configuración del pronóstico**")
+        st.markdown("**:material/tune: Configuración del pronóstico**")
         c1, c2, c3, c4 = st.columns([1.3, 1, 1, 1])
         with c1:
             estacion = st.selectbox("Estación", _ESTACIONES, index=0,
@@ -111,14 +111,14 @@ def render(df=None):
     izq, der = st.columns([1, 1])
     with izq:
         with st.container(border=True):
-            st.markdown("**📊 Comparación de modelos** (ordenada por MAPE, menor es mejor)")
+            st.markdown("**:material/bar_chart: Comparación de modelos** (ordenada por MAPE, menor es mejor)")
             st.caption("El valor resaltado en verde es el mínimo de cada métrica entre los tres modelos.")
             tabla = paq["tabla"].rename(columns={"mape": "MAPE %", "rmse": "RMSE", "mae": "MAE"})
             st.dataframe(tabla.style.format("{:.3f}").highlight_min(axis=0, color="#a3be8c55"),
                          width="stretch")
     with der:
         with st.container(border=True):
-            st.markdown(f"**🔮 Pronóstico — próximos {cfg['horizonte']} períodos**")
+            st.markdown(f"**:material/insights: Pronóstico — próximos {cfg['horizonte']} períodos**")
             st.caption("Valores proyectados por el modelo ganador, reajustado sobre toda la serie disponible.")
             fut = paq["futuro"].copy()
             fut.index = fut.index.strftime("%Y-%m-%d")

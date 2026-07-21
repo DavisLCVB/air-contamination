@@ -122,7 +122,7 @@ def render(df: pd.DataFrame | None = None) -> None:
     metrics = todo["metrics"]
     mejor = metrics["mejor_modelo"]
 
-    st.header("🤖 Panel 2 — Predictivo: alta contaminación por PM2.5")
+    st.header(":material/smart_toy: Panel 2 — Predictivo: alta contaminación por PM2.5")
     with st.container(border=True):
         st.markdown(
             f"""
@@ -137,7 +137,7 @@ manejo explícito del desbalance.
 
     # --- Comparación de modelos -------------------------------------------------
     with st.container(border=True):
-        st.subheader("📊 Comparación de modelos")
+        st.subheader(":material/bar_chart: Comparación de modelos")
         filas = []
         for clave, r in metrics["modelos"].items():
             filas.append(
@@ -162,7 +162,7 @@ manejo explícito del desbalance.
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("🧩 Matriz de confusión")
+            st.subheader(":material/grid_view: Matriz de confusión")
             cm = M.DIR_MODELOS / "confusion_matrix.png"
             if cm.exists():
                 st.image(str(cm), width="stretch")
@@ -176,7 +176,7 @@ manejo explícito del desbalance.
                 st.write(r)
                 st.info("Ejecuta `uv run python src/models.py` para generar la figura.")
         with col2:
-            st.subheader("🔬 Importancia global (SHAP)")
+            st.subheader(":material/science: Importancia global (SHAP)")
             summ = M.DIR_MODELOS / f"{mejor}_shap_summary.png"
             if summ.exists():
                 st.image(str(summ), width="stretch")
@@ -191,7 +191,7 @@ manejo explícito del desbalance.
     force = M.DIR_MODELOS / f"{mejor}_shap_force.png"
     if force.exists():
         with st.container(border=True):
-            st.subheader("🎯 Explicación local (SHAP force plot)")
+            st.subheader(":material/track_changes: Explicación local (SHAP force plot)")
             st.image(str(force), width="stretch")
             st.caption(
                 "Cómo se arma la predicción para UN caso puntual: cada contaminante empuja "
@@ -201,7 +201,7 @@ manejo explícito del desbalance.
 
     # --- Predicción interactiva (alimenta el CRUD de Rol D) ---------------------
     with st.container(border=True):
-        st.subheader("🧪 Probar una predicción")
+        st.subheader(":material/play_circle: Probar una predicción")
         umbral = st.slider(
             "Umbral de decisión", 0.05, 0.95, float(metrics["umbral_decision"]), 0.05,
             help="Bajarlo sube el recall de 'alta' a costa de más falsos positivos.",
@@ -229,7 +229,7 @@ manejo explícito del desbalance.
 
     if todo["origen"] == "entrenado":
         st.caption(
-            "⚠ Modelos entrenados en caliente (no había artefactos en `models/`). "
+            ":material/warning: Modelos entrenados en caliente (no había artefactos en `models/`). "
             "Para el deploy, commitea `models/*.pkl` o corre `models.py` antes."
         )
 

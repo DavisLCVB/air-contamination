@@ -8,8 +8,10 @@ Integra los 4 paneles del proyecto en una sola app de Streamlit:
     Panel 3 · Serie temporal         -> src/panel_forecast.py::render(df)
     Panel 4 · CRUD + Reporte         -> src/panel_crud.py::render(df)
 
-Contrato único para los cuatro: cada panel expone `render(df=None)` y dibuja su tab.
-El df limpio se carga UNA sola vez aquí (cacheado) y se pasa a cada panel.
+Contrato único para los cuatro: cada panel expone `render(df=None)` y dibuja su
+contenido. La navegación entre paneles vive en botones del sidebar (no tabs);
+el panel activo se guarda en `st.session_state["panel_activo"]`. El df limpio
+se carga UNA sola vez aquí (cacheado) y se pasa al panel activo.
 
 Paneles que aún no existan muestran un aviso de "en construcción" en lugar de romper
 la app, así el deploy sigue funcionando mientras se completan.
@@ -29,10 +31,19 @@ RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ / "src"))
 
 from preprocessing import cargar_y_limpiar  # noqa: E402
+import theme  # noqa: E402
 
 RUTA_DATOS = RAIZ / "data" / "air_contamination.csv"
 
-st.set_page_config(page_title="Dos Limas, un mismo cielo", page_icon="🌫️", layout="wide")
+st.set_page_config(page_title="Dos Limas, un mismo cielo", page_icon=":material/analytics:", layout="wide")
+
+# (módulo, ícono+etiqueta del botón de navegación, título de fallback si el panel falla)
+PANELES = [
+    ("panel_eda", ":material/query_stats: 1 · EDA & Clustering", "Panel 1 · EDA & Clustering"),
+    ("panel_predictivo", ":material/smart_toy: 2 · Predicción", "Panel 2 · Predicción de alta contaminación"),
+    ("panel_forecast", ":material/show_chart: 3 · Serie temporal", "Panel 3 · Serie temporal y pronóstico"),
+    ("panel_crud", ":material/folder_open: 4 · CRUD & Reporte", "Panel 4 · CRUD de consultas & Reporte"),
+]
 
 
 @st.cache_data(show_spinner="Cargando y limpiando datos…")
@@ -48,7 +59,7 @@ def _panel(nombre_modulo: str, df, titulo: str):
         modulo.render(df)
     except ModuleNotFoundError:
         st.subheader(titulo)
-        st.info("🚧 Panel en construcción.")
+        st.info("Panel en construcción.", icon=":material/construction:")
     except Exception as e:  # el panel existe pero falló: no tumbar toda la app
         st.subheader(titulo)
         st.error(f"El panel `{nombre_modulo}` lanzó un error: {e}")
@@ -56,30 +67,32 @@ def _panel(nombre_modulo: str, df, titulo: str):
 
 
 def main():
-    col_icono, col_titulo = st.columns([1, 9])
-    with col_icono:
-        st.markdown("<div style='font-size: 3.2rem; line-height: 1;'>🌫️</div>", unsafe_allow_html=True)
-    with col_titulo:
-        st.title("Dos Limas, un mismo cielo")
-        st.markdown(
-            "Clustering y **predicción de calidad del aire (PM2.5)** en Lima Metropolitana · "
-            "datos horarios de SENAMHI (10 estaciones, 2014–2020) · pipeline CRISP-DM."
-        )
+    theme.inyectar_css()
+
+    if "panel_activo" not in st.session_state:
+        st.session_state.panel_activo = PANELES[0][0]
+
+    st.title(":material/analytics: Dos Limas, un mismo cielo")
+    st.markdown(
+        "Clustering y **predicción de calidad del aire (PM2.5)** en Lima Metropolitana · "
+        "datos horarios de SENAMHI (10 estaciones, 2014–2020) · pipeline CRISP-DM."
+    )
 
     with st.sidebar:
-        st.header("🗺️ Navegación")
+        st.header(":material/map: Navegación")
         with st.container(border=True):
-            st.markdown(
-                "- 🔎 **Panel 1** · EDA + Clustering\n"
-                "- 🤖 **Panel 2** · Predicción RF/XGBoost\n"
-                "- 📈 **Panel 3** · Serie temporal\n"
-                "- 🗂️ **Panel 4** · CRUD + Reporte\n"
-            )
+            for modulo, etiqueta, _ in PANELES:
+                activo = st.session_state.panel_activo == modulo
+                if st.button(etiqueta, key=f"nav_{modulo}", width="stretch",
+                             type="primary" if activo else "secondary"):
+                    st.session_state.panel_activo = modulo
+                    st.rerun()
         st.caption(f"Semilla oficial: `SEED = 96` · datos: `{RUTA_DATOS.name}`")
+
         st.divider()
         st.caption(
-            "💡 Cada panel es independiente: los controles (sliders, selectores) "
-            "solo afectan a la pestaña donde están."
+            ":material/lightbulb: Cada panel es independiente: los controles (sliders, "
+            "selectores) solo afectan al panel donde están."
         )
 
     df = _df()
@@ -90,17 +103,10 @@ def main():
         m3.metric("Estaciones", f"{df['estacion'].nunique()}")
     st.divider()
 
-    t1, t2, t3, t4 = st.tabs(
-        ["🔎 1 · EDA & Clustering", "🤖 2 · Predicción", "📈 3 · Serie temporal", "🗂️ 4 · CRUD & Reporte"]
+    modulo_activo, _, titulo_activo = next(
+        (p for p in PANELES if p[0] == st.session_state.panel_activo), PANELES[0]
     )
-    with t1:
-        _panel("panel_eda", df, "Panel 1 · EDA & Clustering")
-    with t2:
-        _panel("panel_predictivo", df, "Panel 2 · Predicción de alta contaminación")
-    with t3:
-        _panel("panel_forecast", df, "Panel 3 · Serie temporal y pronóstico")
-    with t4:
-        _panel("panel_crud", df, "Panel 4 · CRUD de consultas & Reporte")
+    _panel(modulo_activo, df, titulo_activo)
 
 
 if __name__ == "__main__":

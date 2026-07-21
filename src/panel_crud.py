@@ -323,14 +323,14 @@ def _predecir_respaldo(entrada: dict[str, float]) -> dict[str, Any]:
 
 def _seccion_registro(predictor: dict[str, Any]) -> None:
     """Formulario de creación (Create): captura datos, predice y persiste."""
-    st.subheader("📝 Registrar nueva consulta")
+    st.subheader(":material/edit_note: Registrar nueva consulta")
     st.caption(f"Predictor activo: **{predictor['modo']}**")
 
     if predictor["modo"] == "respaldo":
         st.info(
             "Modelo del Rol B no encontrado: se usa un predictor de respaldo para "
             "la demo. Genera el modelo real con `uv run python src/models.py`.",
-            icon="⚠️",
+            icon=":material/warning:",
         )
 
     with st.container(border=True), st.form("form_registro", clear_on_submit=False):
@@ -389,7 +389,7 @@ def _seccion_registro(predictor: dict[str, Any]) -> None:
 
 def _seccion_listado() -> None:
     """Listado de consultas (Read) en una tabla interactiva."""
-    st.subheader("📋 Consultas registradas")
+    st.subheader(":material/list_alt: Consultas registradas")
     df = listar_consultas()
 
     if df.empty:
@@ -399,7 +399,7 @@ def _seccion_listado() -> None:
     with st.container(border=True):
         st.dataframe(df, width="stretch", hide_index=True)
         st.download_button(
-            "⬇️ Descargar CSV",
+            ":material/download: Descargar CSV",
             data=df.to_csv(index=False).encode("utf-8"),
             file_name="consultas.csv",
             mime="text/csv",
@@ -408,7 +408,7 @@ def _seccion_listado() -> None:
 
 def _seccion_edicion() -> None:
     """Edición de una consulta existente (Update)."""
-    st.subheader("✏️ Editar consulta")
+    st.subheader(":material/edit: Editar consulta")
     df = listar_consultas()
 
     if df.empty:
@@ -456,7 +456,7 @@ def _seccion_edicion() -> None:
 
 def _seccion_eliminacion() -> None:
     """Eliminación de una consulta (Delete) con confirmación explícita."""
-    st.subheader("🗑️ Eliminar consulta")
+    st.subheader(":material/delete: Eliminar consulta")
     df = listar_consultas()
 
     if df.empty:
@@ -489,7 +489,7 @@ def render(df=None) -> None:
     (dataset limpio del Rol A) se acepta por compatibilidad con app.py; este
     panel no lo necesita porque administra su propia persistencia en SQLite.
     """
-    st.header("🗂️ Panel 4 — CRUD de consultas y predicción")
+    st.header(":material/folder_open: Panel 4 — CRUD de consultas y predicción")
     st.caption(
         "Registra consultas con los datos de entrada del modelo, obtén la "
         "predicción del Rol B y administra el historial (crear, leer, editar, "
@@ -505,7 +505,7 @@ def render(df=None) -> None:
     predictor = _cargar_predictor()
 
     tab_crear, tab_listar, tab_editar, tab_eliminar = st.tabs(
-        ["📝 Crear", "📋 Listar", "✏️ Editar", "🗑️ Eliminar"]
+        [":material/edit_note: Crear", ":material/list_alt: Listar", ":material/edit: Editar", ":material/delete: Eliminar"]
     )
     with tab_crear:
         _seccion_registro(predictor)

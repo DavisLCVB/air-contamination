@@ -31,7 +31,7 @@ import pandas as pd
 
 # --- Rol A es la fuente única de la limpieza y de la semilla oficial -----------------
 from preprocessing import cargar_y_limpiar, SEED  # noqa: F401
-from theme import AZUL, ROJO, GRIS_TEXTO, aplicar_estilo_mpl
+import theme
 
 # =====================================================================================
 # Constantes oficiales de Rol C  (tuneables en un solo lugar — modificación en vivo)
@@ -315,23 +315,24 @@ def graficar(paquete: dict, ruta_png: Path | None = None):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    p = theme.paleta()
     serie, test, mejor = paquete["serie"], paquete["test"], paquete["mejor"]
     yhat_test = paquete["resultados"][mejor]["yhat"]
     fut = paquete["futuro"]
 
     fig, ax = plt.subplots(figsize=(11, 4.5))
-    ax.plot(serie.index, serie.values, color=GRIS_TEXTO, lw=1.2, label="Histórico", zorder=2)
-    ax.plot(yhat_test.index, yhat_test.values, "--", color=ROJO, lw=1.6,
+    ax.plot(serie.index, serie.values, color=p["TEXTO"], lw=1.2, label="Histórico", zorder=2)
+    ax.plot(yhat_test.index, yhat_test.values, "--", color=p["ROJO"], lw=1.6,
             label=f"Ajuste test ({mejor})", zorder=2)
-    ax.plot(fut.index, fut["yhat"], color=AZUL, lw=2, marker="o", label="Pronóstico", zorder=2)
+    ax.plot(fut.index, fut["yhat"], color=p["AZUL"], lw=2, marker="o", label="Pronóstico", zorder=2)
     if "lo" in fut.columns:
-        ax.fill_between(fut.index, fut["lo"], fut["hi"], color=AZUL, alpha=0.18, label="IC 80%")
+        ax.fill_between(fut.index, fut["lo"], fut["hi"], color=p["AZUL"], alpha=0.18, label="IC 80%")
     ax.set_title(f"PM2.5 — {paquete['config']['estacion']} · mejor: {mejor} · "
                  f"MAPE {paquete['tabla'].loc[mejor,'mape']:.1f}% · "
                  f"RMSE {paquete['tabla'].loc[mejor,'rmse']:.1f}")
     ax.set_ylabel("PM2.5 (µg/m³)")
     ax.legend(loc="upper left", fontsize=8)
-    aplicar_estilo_mpl(ax)
+    theme.aplicar_estilo_mpl(ax)
     fig.tight_layout()
     if ruta_png:
         ruta_png.parent.mkdir(parents=True, exist_ok=True)

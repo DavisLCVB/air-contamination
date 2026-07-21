@@ -21,7 +21,7 @@ import pandas as pd
 import streamlit as st
 
 from preprocessing import cargar_y_limpiar, SEED
-from theme import AZUL, ROJO, COLORMAP_CLUSTERS, COLORMAP_DIVERGENTE, aplicar_estilo_mpl
+import theme
 
 try:  # la lista de contaminantes la define Rol A; hay fallback por si cambia el nombre
     from preprocessing import CONTAMINANTES
@@ -89,13 +89,14 @@ def render(df=None):
                "contaminadas que otras.")
 
     cols = _contaminantes_presentes(df)
+    p = theme.paleta()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     # --- Resumen general -------------------------------------------------------------
     with st.container(border=True):
-        st.markdown("**📋 Resumen del dataset**")
+        st.markdown("**:material/summarize: Resumen del dataset**")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Filas", f"{len(df):,}")
         c2.metric("Estaciones", f"{df[COL_ESTACION].nunique()}")
@@ -112,25 +113,25 @@ def render(df=None):
     # --- PM2.5 medio por estación (las 'Dos Limas') ----------------------------------
     with st.container(border=True):
         st.markdown(
-            "**🏙️ PM2.5 promedio por estación** (línea sólida = ECA anual 25 µg/m³, la "
+            "**:material/location_city: PM2.5 promedio por estación** (línea sólida = ECA anual 25 µg/m³, la "
             "comparación correcta para un promedio histórico multi-año; línea punteada "
             "tenue = ECA 24h, referencial)"
         )
         pm_est = df.groupby(COL_ESTACION)["pm_25"].mean().sort_values(ascending=False)
 
         fig1, ax1 = plt.subplots(figsize=(10, 3.8))
-        colores = [ROJO if v > ECA_PM25_ANUAL else AZUL for v in pm_est.values]
+        colores = [p["ROJO"] if v > ECA_PM25_ANUAL else p["AZUL"] for v in pm_est.values]
         ax1.bar(range(len(pm_est)), pm_est.values, color=colores, zorder=2)
-        ax1.axhline(ECA_PM25_ANUAL, ls="-", color="gray", linewidth=1.4,
+        ax1.axhline(ECA_PM25_ANUAL, ls="-", color=p["REFERENCIA"], linewidth=1.4,
                     label=f"ECA anual = {ECA_PM25_ANUAL} µg/m³")
-        ax1.axhline(ECA_PM25_24H, ls=":", color="lightgray", linewidth=1.0,
+        ax1.axhline(ECA_PM25_24H, ls=":", color=p["REFERENCIA_TENUE"], linewidth=1.0,
                     label=f"ECA 24h = {ECA_PM25_24H} µg/m³ (referencial, no aplica directo a un "
                           "promedio histórico)")
         ax1.legend(fontsize=6.5, loc="upper right", framealpha=0.9)
         ax1.set_xticks(range(len(pm_est)))
         ax1.set_xticklabels(pm_est.index, rotation=45, ha="right", fontsize=8)
         ax1.set_ylabel("PM2.5 (µg/m³)")
-        aplicar_estilo_mpl(ax1)
+        theme.aplicar_estilo_mpl(ax1)
         fig1.tight_layout()
         st.pyplot(fig1, width="stretch")
         n_excede = int((pm_est > ECA_PM25_ANUAL).sum())
@@ -154,7 +155,7 @@ def render(df=None):
     # --- Correlación entre contaminantes ---------------------------------------------
     if len(cols) >= 2:
         with st.container(border=True):
-            st.markdown("**🔗 Correlación entre contaminantes**")
+            st.markdown("**:material/link: Correlación entre contaminantes**")
             st.caption(
                 "Cada celda mide qué tan juntos se mueven dos contaminantes (−1 a 1). "
                 "Valores cercanos a 1 (rojo) indican que suben y bajan a la vez, típico de "
@@ -163,22 +164,28 @@ def render(df=None):
             )
             corr = df[cols].corr()
             fig2, ax2 = plt.subplots(figsize=(5.5, 4.5))
-            im = ax2.imshow(corr.values, cmap=COLORMAP_DIVERGENTE, vmin=-1, vmax=1)
+            fig2.patch.set_facecolor(p["FONDO"])
+            ax2.set_facecolor(p["SUPERFICIE"])
+            im = ax2.imshow(corr.values, cmap=theme.colormap_divergente(), vmin=-1, vmax=1)
             ax2.set_xticks(range(len(cols)))
             ax2.set_xticklabels(cols, rotation=45, ha="right", fontsize=8)
             ax2.set_yticks(range(len(cols)))
             ax2.set_yticklabels(cols, fontsize=8)
+            ax2.tick_params(colors=p["TEXTO"], labelcolor=p["TEXTO"])
+            for lado in ax2.spines.values():
+                lado.set_visible(False)
             for i in range(len(cols)):
                 for j in range(len(cols)):
                     ax2.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center",
-                             fontsize=7, color="black")
-            fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+                             fontsize=7, color=p["TEXTO"])
+            barra = fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+            barra.ax.yaxis.set_tick_params(color=p["TEXTO"], labelcolor=p["TEXTO"])
             fig2.tight_layout()
             st.pyplot(fig2, width="stretch")
 
     # --- Clustering K-means ----------------------------------------------------------
     with st.container(border=True):
-        st.markdown("### 🧭 Clustering de estaciones (K-means)")
+        st.markdown("### :material/scatter_plot: Clustering de estaciones (K-means)")
         col_k, col_inercia, col_silueta = st.columns([2, 1, 1])
         with col_k:
             k = st.slider("Número de clusters (k)", 2, 6, 2,
@@ -193,22 +200,22 @@ def render(df=None):
                             help="Qué tan bien separado está cada punto de los clusters vecinos "
                                  "(rango −1 a 1; más alto es mejor).")
         st.caption(
-            f"⚠️ Inercia y silueta calculadas sobre {len(perfil)} estaciones (una fila por "
+            f":material/warning: Inercia y silueta calculadas sobre {len(perfil)} estaciones (una fila por "
             "estación). Con tan pocos puntos, subir k suele dejar clusters de 1-2 miembros y "
             "vuelve la silueta ruidosa — **no es comparable** con la del notebook de EDA, que se "
             "calcula sobre ~515,000 filas a nivel hora-estación, una unidad de análisis distinta."
         )
 
         fig3, ax3 = plt.subplots(figsize=(8, 5))
-        sc = ax3.scatter(coords[:, 0], coords[:, 1], c=labels, cmap=COLORMAP_CLUSTERS, s=120,
-                          edgecolor="k", zorder=2)
+        sc = ax3.scatter(coords[:, 0], coords[:, 1], c=labels, cmap=theme.colormap_clusters(), s=120,
+                          edgecolor=p["TEXTO"], linewidth=0.8, zorder=2)
         for i, nombre in enumerate(perfil.index):
-            ax3.annotate(nombre, (coords[i, 0], coords[i, 1]), fontsize=7,
+            ax3.annotate(nombre, (coords[i, 0], coords[i, 1]), fontsize=7, color=p["TEXTO"],
                          xytext=(4, 4), textcoords="offset points")
         ax3.set_xlabel("PCA 1")
         ax3.set_ylabel("PCA 2")
         ax3.set_title(f"Estaciones agrupadas por perfil de contaminación (k={k})")
-        aplicar_estilo_mpl(ax3)
+        theme.aplicar_estilo_mpl(ax3)
         fig3.tight_layout()
         st.pyplot(fig3, width="stretch")
         st.caption(
