@@ -1,0 +1,9 @@
+# Tema visual del dashboard — paleta Nord, consistente con src/theme.py
+# y los colores ya usados en los gráficos matplotlib (panel_eda.py, forecast.py).
+[theme]
+base = "light"
+primaryColor = "#5e81ac"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#eceff4"
+textColor = "#2e3440"
+font = "sans-serif"

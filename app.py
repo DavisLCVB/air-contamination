@@ -6,7 +6,7 @@ Integra los 4 paneles del proyecto en una sola app de Streamlit:
     Panel 1 · EDA + Clustering       -> src/panel_eda.py::render(df)
     Panel 2 · Predicción (RF/XGB)    -> src/panel_predictivo.py::render(df)
     Panel 3 · Serie temporal         -> src/panel_forecast.py::render(df)
-    Panel 4 · CRUD + Reporte         -> src/panel_crud.py::render(df)  (en construcción)
+    Panel 4 · CRUD + Reporte         -> src/panel_crud.py::render(df)
 
 Contrato único para los cuatro: cada panel expone `render(df=None)` y dibuja su tab.
 El df limpio se carga UNA sola vez aquí (cacheado) y se pasa a cada panel.
@@ -56,25 +56,39 @@ def _panel(nombre_modulo: str, df, titulo: str):
 
 
 def main():
-    st.title("🌫️ Dos Limas, un mismo cielo")
-    st.markdown(
-        "Clustering y **predicción de calidad del aire (PM2.5)** en Lima Metropolitana · "
-        "datos horarios de SENAMHI (10 estaciones, 2014–2020) · pipeline CRISP-DM."
-    )
+    col_icono, col_titulo = st.columns([1, 9])
+    with col_icono:
+        st.markdown("<div style='font-size: 3.2rem; line-height: 1;'>🌫️</div>", unsafe_allow_html=True)
+    with col_titulo:
+        st.title("Dos Limas, un mismo cielo")
+        st.markdown(
+            "Clustering y **predicción de calidad del aire (PM2.5)** en Lima Metropolitana · "
+            "datos horarios de SENAMHI (10 estaciones, 2014–2020) · pipeline CRISP-DM."
+        )
 
     with st.sidebar:
-        st.header("Proyecto")
-        st.markdown(
-            "- **Panel 1** · EDA + Clustering\n"
-            "- **Panel 2** · Predicción RF/XGBoost\n"
-            "- **Panel 3** · Serie temporal\n"
-            "- **Panel 4** · CRUD + Reporte\n"
+        st.header("🗺️ Navegación")
+        with st.container(border=True):
+            st.markdown(
+                "- 🔎 **Panel 1** · EDA + Clustering\n"
+                "- 🤖 **Panel 2** · Predicción RF/XGBoost\n"
+                "- 📈 **Panel 3** · Serie temporal\n"
+                "- 🗂️ **Panel 4** · CRUD + Reporte\n"
+            )
+        st.caption(f"Semilla oficial: `SEED = 96` · datos: `{RUTA_DATOS.name}`")
+        st.divider()
+        st.caption(
+            "💡 Cada panel es independiente: los controles (sliders, selectores) "
+            "solo afectan a la pestaña donde están."
         )
-        st.caption(f"Semilla oficial: SEED = 96 · datos: `{RUTA_DATOS.name}`")
 
     df = _df()
-    st.success(f"Dataset limpio en memoria: {len(df):,} filas × {df.shape[1]} columnas · "
-               f"{df['estacion'].nunique()} estaciones.")
+    with st.container(border=True):
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Filas", f"{len(df):,}")
+        m2.metric("Columnas", f"{df.shape[1]}")
+        m3.metric("Estaciones", f"{df['estacion'].nunique()}")
+    st.divider()
 
     t1, t2, t3, t4 = st.tabs(
         ["🔎 1 · EDA & Clustering", "🤖 2 · Predicción", "📈 3 · Serie temporal", "🗂️ 4 · CRUD & Reporte"]

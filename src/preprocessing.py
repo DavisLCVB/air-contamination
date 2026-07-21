@@ -12,13 +12,19 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 
-# pandas 3.x activa por defecto el backend Arrow para columnas de texto
-# (future.infer_string). En esta combinación con pyarrow 25.x, llamar
-# `.unique()`/`.nunique()` sobre una columna de texto que salió de
-# `st.cache_data` y se vuelve a tocar en un rerun de Streamlit produce un
-# segfault del proceso (reproducido con AppTest: revienta en
-# pandas/core/arrays/arrow/array.py:unique -> pyarrow.compute). Se desactiva
-# para volver al dtype `object` clásico, estable en ese flujo.
+# SEGFAULT DE DEPLOY (reproducido y aislado con AppTest, ver requirements.txt/
+# pyproject.toml): pyarrow >= 20 tiene una regresión que revienta el proceso
+# (no una excepción capturable) en más de un punto al combinarse con pandas
+# 3.0.3 dentro de un rerun de Streamlit:
+#   1. `.unique()`/`.nunique()` sobre una columna de texto Arrow-backed
+#      (pandas/core/arrays/arrow/array.py:unique -> pyarrow.compute).
+#   2. `st.dataframe(df.style.format(...))` en el SEGUNDO rerun de un panel
+#      (pyarrow/pandas_compat.py:convert_column, vía
+#      streamlit/elements/lib/pandas_styler_utils.py).
+# El fix real es el pin `pyarrow>=16,<20` en requirements.txt/pyproject.toml.
+# `future.infer_string=False` NO es suficiente por sí solo (el caso 2 sigue
+# reventando con pyarrow>=20 aun con esta opción en False) pero se deja como
+# capa extra: evita el caso 1 incluso si algún día se sube pyarrow sin querer.
 pd.set_option("future.infer_string", False)
 
 # --------------------------------------------------------------------------

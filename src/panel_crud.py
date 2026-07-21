@@ -323,7 +323,7 @@ def _predecir_respaldo(entrada: dict[str, float]) -> dict[str, Any]:
 
 def _seccion_registro(predictor: dict[str, Any]) -> None:
     """Formulario de creación (Create): captura datos, predice y persiste."""
-    st.subheader("Registrar nueva consulta")
+    st.subheader("📝 Registrar nueva consulta")
     st.caption(f"Predictor activo: **{predictor['modo']}**")
 
     if predictor["modo"] == "respaldo":
@@ -333,7 +333,7 @@ def _seccion_registro(predictor: dict[str, Any]) -> None:
             icon="⚠️",
         )
 
-    with st.form("form_registro", clear_on_submit=False):
+    with st.container(border=True), st.form("form_registro", clear_on_submit=False):
         col_a, col_b = st.columns(2)
         with col_a:
             nombre = st.text_input("Nombre *", max_chars=120)
@@ -389,25 +389,26 @@ def _seccion_registro(predictor: dict[str, Any]) -> None:
 
 def _seccion_listado() -> None:
     """Listado de consultas (Read) en una tabla interactiva."""
-    st.subheader("Consultas registradas")
+    st.subheader("📋 Consultas registradas")
     df = listar_consultas()
 
     if df.empty:
         st.caption("Aún no hay consultas registradas.")
         return
 
-    st.dataframe(df, width="stretch", hide_index=True)
-    st.download_button(
-        "Descargar CSV",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name="consultas.csv",
-        mime="text/csv",
-    )
+    with st.container(border=True):
+        st.dataframe(df, width="stretch", hide_index=True)
+        st.download_button(
+            "⬇️ Descargar CSV",
+            data=df.to_csv(index=False).encode("utf-8"),
+            file_name="consultas.csv",
+            mime="text/csv",
+        )
 
 
 def _seccion_edicion() -> None:
     """Edición de una consulta existente (Update)."""
-    st.subheader("Editar consulta")
+    st.subheader("✏️ Editar consulta")
     df = listar_consultas()
 
     if df.empty:
@@ -420,7 +421,7 @@ def _seccion_edicion() -> None:
         st.warning("El registro seleccionado ya no existe.")
         return
 
-    with st.form("form_edicion"):
+    with st.container(border=True), st.form("form_edicion"):
         col_a, col_b = st.columns(2)
         with col_a:
             nombre = st.text_input("Nombre", value=registro["nombre"] or "")
@@ -455,25 +456,26 @@ def _seccion_edicion() -> None:
 
 def _seccion_eliminacion() -> None:
     """Eliminación de una consulta (Delete) con confirmación explícita."""
-    st.subheader("Eliminar consulta")
+    st.subheader("🗑️ Eliminar consulta")
     df = listar_consultas()
 
     if df.empty:
         st.caption("No hay registros para eliminar.")
         return
 
-    id_sel = st.selectbox("Selecciona el id a eliminar", options=df["id"].tolist(), key="delete_id")
-    confirmar = st.checkbox(
-        f"Confirmo que deseo eliminar la consulta #{id_sel} (acción irreversible)."
-    )
+    with st.container(border=True):
+        id_sel = st.selectbox("Selecciona el id a eliminar", options=df["id"].tolist(), key="delete_id")
+        confirmar = st.checkbox(
+            f"Confirmo que deseo eliminar la consulta #{id_sel} (acción irreversible)."
+        )
 
-    if st.button("Eliminar", type="secondary", disabled=not confirmar):
-        try:
-            eliminar_consulta(int(id_sel))
-            st.success(f"Consulta #{id_sel} eliminada.")
-            st.rerun()
-        except Exception as error:  # noqa: BLE001
-            st.error(f"No se pudo eliminar: {error}")
+        if st.button("Eliminar", type="secondary", disabled=not confirmar):
+            try:
+                eliminar_consulta(int(id_sel))
+                st.success(f"Consulta #{id_sel} eliminada.")
+                st.rerun()
+            except Exception as error:  # noqa: BLE001
+                st.error(f"No se pudo eliminar: {error}")
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +489,7 @@ def render(df=None) -> None:
     (dataset limpio del Rol A) se acepta por compatibilidad con app.py; este
     panel no lo necesita porque administra su propia persistencia en SQLite.
     """
-    st.header("Panel 4 — CRUD de consultas y predicción")
+    st.header("🗂️ Panel 4 — CRUD de consultas y predicción")
     st.caption(
         "Registra consultas con los datos de entrada del modelo, obtén la "
         "predicción del Rol B y administra el historial (crear, leer, editar, "
@@ -503,7 +505,7 @@ def render(df=None) -> None:
     predictor = _cargar_predictor()
 
     tab_crear, tab_listar, tab_editar, tab_eliminar = st.tabs(
-        ["Crear", "Listar", "Editar", "Eliminar"]
+        ["📝 Crear", "📋 Listar", "✏️ Editar", "🗑️ Eliminar"]
     )
     with tab_crear:
         _seccion_registro(predictor)

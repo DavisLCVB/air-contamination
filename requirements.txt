@@ -2,13 +2,13 @@
 # Espeja las dependencias de pyproject.toml/uv.lock para que la app corra igual en la nube.
 # En Streamlit Cloud fijar Python 3.12 (Advanced settings → Python version).
 #
-# Versiones verificadas juntas: numpy 2.4.x · pandas 3.0.x · statsmodels 0.14.x ·
-# scikit-learn 1.9.x · streamlit 1.59.x · matplotlib 3.11.x.
+# Versiones verificadas juntas: numpy 2.4.x · pandas 3.0.x · pyarrow 19.x ·
+# statsmodels 0.14.x · scikit-learn 1.9.x · streamlit 1.59.x · matplotlib 3.11.x.
 
 # --- núcleo de datos ---
 numpy>=2.4,<2.5          # pin de Rol B: numba no soporta numpy>=2.5 (CONTEXTO_ROL_B §9)
 pandas>=3.0.3
-pyarrow>=16             # parquet (data/*.parquet)
+pyarrow>=16,<20         # parquet (data/*.parquet); >=20 con pandas 3.0.3 segfaultea en st.dataframe(...).style
 scipy>=1.13
 
 # --- Rol A: EDA + clustering ---

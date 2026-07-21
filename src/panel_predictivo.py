@@ -122,105 +122,110 @@ def render(df: pd.DataFrame | None = None) -> None:
     metrics = todo["metrics"]
     mejor = metrics["mejor_modelo"]
 
-    st.header("Panel 2 — Predictivo: alta contaminación por PM2.5")
-    st.markdown(
-        f"""
+    st.header("🤖 Panel 2 — Predictivo: alta contaminación por PM2.5")
+    with st.container(border=True):
+        st.markdown(
+            f"""
 **Problema.** Clasificar cada hora como *alta contaminación* cuando
 `PM2.5 > {metrics['umbral_eca_pm25']:.0f} µg/m³`, usando los otros contaminantes
 ({', '.join(metrics['features'])}) como variables. Se excluye `pm_25` para evitar
 fuga de la variable objetivo, y se entrena solo con PM2.5 **medido** (no imputado).
 La clase 'alta' es minoritaria (~{metrics['balance_positivos_pct']:.1f}%), de ahí el
 manejo explícito del desbalance.
-        """
-    )
+            """
+        )
 
     # --- Comparación de modelos -------------------------------------------------
-    st.subheader("Comparación de modelos")
-    filas = []
-    for clave, r in metrics["modelos"].items():
-        filas.append(
-            {
-                "modelo": clave,
-                "F1 (alta)": round(r["clase_1_alta"]["f1"], 4),
-                "Recall (alta)": round(r["clase_1_alta"]["recall"], 4),
-                "Precision (alta)": round(r["clase_1_alta"]["precision"], 4),
-                "ROC-AUC": round(r["roc_auc"], 4),
-                "Accuracy": round(r["accuracy"], 4),
-            }
+    with st.container(border=True):
+        st.subheader("📊 Comparación de modelos")
+        filas = []
+        for clave, r in metrics["modelos"].items():
+            filas.append(
+                {
+                    "modelo": clave,
+                    "F1 (alta)": round(r["clase_1_alta"]["f1"], 4),
+                    "Recall (alta)": round(r["clase_1_alta"]["recall"], 4),
+                    "Precision (alta)": round(r["clase_1_alta"]["precision"], 4),
+                    "ROC-AUC": round(r["roc_auc"], 4),
+                    "Accuracy": round(r["accuracy"], 4),
+                }
+            )
+        tabla = pd.DataFrame(filas).set_index("modelo")
+        st.dataframe(tabla, width="stretch")
+        st.caption(
+            f"Mejor modelo por F1 de la clase minoritaria: **{mejor}**. "
+            "Se justifica priorizar F1/recall de 'alta' porque el costo de no avisar una "
+            "hora contaminada (FN) es mayor que una falsa alarma (FP)."
         )
-    tabla = pd.DataFrame(filas).set_index("modelo")
-    st.dataframe(tabla, width="stretch")
-    st.caption(
-        f"Mejor modelo por F1 de la clase minoritaria: **{mejor}**. "
-        "Se justifica priorizar F1/recall de 'alta' porque el costo de no avisar una "
-        "hora contaminada (FN) es mayor que una falsa alarma (FP)."
-    )
 
     # --- Matriz de confusión + SHAP (imágenes generadas por models.py) ----------
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Matriz de confusión")
-        cm = M.DIR_MODELOS / "confusion_matrix.png"
-        if cm.exists():
-            st.image(str(cm), width="stretch")
-            st.caption(
-                "Filas = clase real, columnas = clase predicha. La diagonal son los "
-                "aciertos; fuera de la diagonal, los errores (falsos positivos y falsos "
-                "negativos) del modelo ganador."
-            )
-        else:
-            r = metrics["modelos"][mejor]["matriz_confusion"]
-            st.write(r)
-            st.info("Ejecuta `uv run python src/models.py` para generar la figura.")
-    with col2:
-        st.subheader("Importancia global (SHAP)")
-        summ = M.DIR_MODELOS / f"{mejor}_shap_summary.png"
-        if summ.exists():
-            st.image(str(summ), width="stretch")
-            st.caption(
-                "Cada punto es una hora del set de test. Arriba, los contaminantes que "
-                "más mueven la predicción en general; el color indica si ese contaminante "
-                "estaba alto (rojo) o bajo (azul) en esa hora."
-            )
-        else:
-            st.info("SHAP summary se genera con `uv run python src/models.py`.")
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("🧩 Matriz de confusión")
+            cm = M.DIR_MODELOS / "confusion_matrix.png"
+            if cm.exists():
+                st.image(str(cm), width="stretch")
+                st.caption(
+                    "Filas = clase real, columnas = clase predicha. La diagonal son los "
+                    "aciertos; fuera de la diagonal, los errores (falsos positivos y falsos "
+                    "negativos) del modelo ganador."
+                )
+            else:
+                r = metrics["modelos"][mejor]["matriz_confusion"]
+                st.write(r)
+                st.info("Ejecuta `uv run python src/models.py` para generar la figura.")
+        with col2:
+            st.subheader("🔬 Importancia global (SHAP)")
+            summ = M.DIR_MODELOS / f"{mejor}_shap_summary.png"
+            if summ.exists():
+                st.image(str(summ), width="stretch")
+                st.caption(
+                    "Cada punto es una hora del set de test. Arriba, los contaminantes que "
+                    "más mueven la predicción en general; el color indica si ese contaminante "
+                    "estaba alto (rojo) o bajo (azul) en esa hora."
+                )
+            else:
+                st.info("SHAP summary se genera con `uv run python src/models.py`.")
 
     force = M.DIR_MODELOS / f"{mejor}_shap_force.png"
     if force.exists():
-        st.subheader("Explicación local (SHAP force plot)")
-        st.image(str(force), width="stretch")
-        st.caption(
-            "Cómo se arma la predicción para UN caso puntual: cada contaminante empuja "
-            "la probabilidad hacia 'alta contaminación' (rojo) o hacia 'baja' (azul) "
-            "desde un valor base, hasta llegar a la probabilidad final del modelo."
-        )
+        with st.container(border=True):
+            st.subheader("🎯 Explicación local (SHAP force plot)")
+            st.image(str(force), width="stretch")
+            st.caption(
+                "Cómo se arma la predicción para UN caso puntual: cada contaminante empuja "
+                "la probabilidad hacia 'alta contaminación' (rojo) o hacia 'baja' (azul) "
+                "desde un valor base, hasta llegar a la probabilidad final del modelo."
+            )
 
     # --- Predicción interactiva (alimenta el CRUD de Rol D) ---------------------
-    st.subheader("Probar una predicción")
-    umbral = st.slider(
-        "Umbral de decisión", 0.05, 0.95, float(metrics["umbral_decision"]), 0.05,
-        help="Bajarlo sube el recall de 'alta' a costa de más falsos positivos.",
-    )
-    modelo = todo["rf"] if mejor.startswith("rf") else todo["xgb"]
-
-    st.caption(
-        "Ingresa una lectura de los otros contaminantes para esa hora y el modelo "
-        "estima si esa combinación corresponde a una hora de alta contaminación de PM2.5."
-    )
-    cols = st.columns(len(M.FEATURES))
-    valores: dict[str, float] = {}
-    defaults = {"pm_10": 80.0, "so2": 10.0, "no2": 30.0, "o3": 15.0, "co": 800.0}
-    for c, feat in zip(cols, M.FEATURES):
-        valores[feat] = c.number_input(feat, min_value=0.0, value=defaults.get(feat, 0.0))
-
-    if st.button("Predecir"):
-        res = predecir_desde_entrada(modelo, valores, umbral=umbral)
-        etiqueta = res["etiqueta"]
-        (st.error if res["clase"] == 1 else st.success)(
-            f"{etiqueta} · probabilidad={res['probabilidad']:.3f} (umbral={umbral:.2f})"
+    with st.container(border=True):
+        st.subheader("🧪 Probar una predicción")
+        umbral = st.slider(
+            "Umbral de decisión", 0.05, 0.95, float(metrics["umbral_decision"]), 0.05,
+            help="Bajarlo sube el recall de 'alta' a costa de más falsos positivos.",
         )
-        # Se devuelve el dict para que Rol D lo persista en el CRUD (Panel 4).
-        st.session_state["ultima_prediccion"] = {**valores, **res}
+        modelo = todo["rf"] if mejor.startswith("rf") else todo["xgb"]
+
+        st.caption(
+            "Ingresa una lectura de los otros contaminantes para esa hora y el modelo "
+            "estima si esa combinación corresponde a una hora de alta contaminación de PM2.5."
+        )
+        cols = st.columns(len(M.FEATURES))
+        valores: dict[str, float] = {}
+        defaults = {"pm_10": 80.0, "so2": 10.0, "no2": 30.0, "o3": 15.0, "co": 800.0}
+        for c, feat in zip(cols, M.FEATURES):
+            valores[feat] = c.number_input(feat, min_value=0.0, value=defaults.get(feat, 0.0))
+
+        if st.button("Predecir", type="primary"):
+            res = predecir_desde_entrada(modelo, valores, umbral=umbral)
+            etiqueta = res["etiqueta"]
+            (st.error if res["clase"] == 1 else st.success)(
+                f"{etiqueta} · probabilidad={res['probabilidad']:.3f} (umbral={umbral:.2f})"
+            )
+            # Se devuelve el dict para que Rol D lo persista en el CRUD (Panel 4).
+            st.session_state["ultima_prediccion"] = {**valores, **res}
 
     if todo["origen"] == "entrenado":
         st.caption(

@@ -21,6 +21,7 @@ import pandas as pd
 import streamlit as st
 
 from preprocessing import cargar_y_limpiar, SEED
+from theme import AZUL, ROJO, COLORMAP_CLUSTERS, COLORMAP_DIVERGENTE, aplicar_estilo_mpl
 
 try:  # la lista de contaminantes la define Rol A; hay fallback por si cambia el nombre
     from preprocessing import CONTAMINANTES
@@ -88,134 +89,143 @@ def render(df=None):
                "contaminadas que otras.")
 
     cols = _contaminantes_presentes(df)
-
-    # --- Resumen general -------------------------------------------------------------
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Filas", f"{len(df):,}")
-    c2.metric("Estaciones", f"{df[COL_ESTACION].nunique()}")
-    fechas = pd.to_datetime(df[COL_FECHA])
-    c3.metric("Rango", f"{fechas.min().year}–{fechas.max().year}")
-    if COL_IMPUTADO in df.columns:
-        c4.metric("PM2.5 imputado", f"{df[COL_IMPUTADO].astype(float).mean() * 100:.1f} %")
-    st.caption(
-        "Filas y estaciones tras la limpieza; 'PM2.5 imputado' es el % de horas donde "
-        "el dato no llegó de la estación y se rellenó (interpolación o climatología), "
-        "no un dato medido directamente."
-    )
-
-    # --- PM2.5 medio por estación (las 'Dos Limas') ----------------------------------
-    st.markdown(
-        "**PM2.5 promedio por estación** (línea sólida = ECA anual 25 µg/m³, la comparación "
-        "correcta para un promedio histórico multi-año; línea punteada tenue = ECA 24h, referencial)"
-    )
-    pm_est = df.groupby(COL_ESTACION)["pm_25"].mean().sort_values(ascending=False)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig1, ax1 = plt.subplots(figsize=(10, 3.8))
-    colores = ["#bf616a" if v > ECA_PM25_ANUAL else "#5e81ac" for v in pm_est.values]
-    ax1.bar(range(len(pm_est)), pm_est.values, color=colores)
-    ax1.axhline(ECA_PM25_ANUAL, ls="-", color="gray", linewidth=1.4,
-                label=f"ECA anual = {ECA_PM25_ANUAL} µg/m³")
-    ax1.axhline(ECA_PM25_24H, ls=":", color="lightgray", linewidth=1.0,
-                label=f"ECA 24h = {ECA_PM25_24H} µg/m³ (referencial, no aplica directo a un "
-                      "promedio histórico)")
-    ax1.legend(fontsize=6.5, loc="upper right", framealpha=0.9)
-    ax1.set_xticks(range(len(pm_est)))
-    ax1.set_xticklabels(pm_est.index, rotation=45, ha="right", fontsize=8)
-    ax1.set_ylabel("PM2.5 (µg/m³)")
-    fig1.tight_layout()
-    st.pyplot(fig1, width="stretch")
-    n_excede = int((pm_est > ECA_PM25_ANUAL).sum())
-    if n_excede > 0:
+    # --- Resumen general -------------------------------------------------------------
+    with st.container(border=True):
+        st.markdown("**📋 Resumen del dataset**")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Filas", f"{len(df):,}")
+        c2.metric("Estaciones", f"{df[COL_ESTACION].nunique()}")
+        fechas = pd.to_datetime(df[COL_FECHA])
+        c3.metric("Rango", f"{fechas.min().year}–{fechas.max().year}")
+        if COL_IMPUTADO in df.columns:
+            c4.metric("PM2.5 imputado", f"{df[COL_IMPUTADO].astype(float).mean() * 100:.1f} %")
         st.caption(
-            f"Barras en rojo ({n_excede} de {len(pm_est)}): estaciones cuyo promedio histórico "
-            f"ya supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (D.S. N° 003-2017-MINAM) — el "
-            "estándar correcto para comparar un promedio de varios años. El ECA de 24h "
-            f"({ECA_PM25_24H} µg/m³, línea punteada) es el que usa el Panel 2 para clasificar "
-            "horas puntuales, no promedios de largo plazo."
+            "Filas y estaciones tras la limpieza; 'PM2.5 imputado' es el % de horas donde "
+            "el dato no llegó de la estación y se rellenó (interpolación o climatología), "
+            "no un dato medido directamente."
         )
-    else:
-        st.caption(
-            f"Ninguna estación supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (línea sólida) "
-            f"en promedio histórico — la más cercana es {pm_est.index[0]}, con "
-            f"{pm_est.iloc[0]:.1f} µg/m³. El ECA de 24h ({ECA_PM25_24H} µg/m³, línea punteada) "
-            "es el que usa el Panel 2 para horas puntuales, no aplica directo aquí. La brecha "
-            "entre estaciones sigue siendo la evidencia de que no toda Lima respira el mismo aire."
+
+    # --- PM2.5 medio por estación (las 'Dos Limas') ----------------------------------
+    with st.container(border=True):
+        st.markdown(
+            "**🏙️ PM2.5 promedio por estación** (línea sólida = ECA anual 25 µg/m³, la "
+            "comparación correcta para un promedio histórico multi-año; línea punteada "
+            "tenue = ECA 24h, referencial)"
         )
+        pm_est = df.groupby(COL_ESTACION)["pm_25"].mean().sort_values(ascending=False)
+
+        fig1, ax1 = plt.subplots(figsize=(10, 3.8))
+        colores = [ROJO if v > ECA_PM25_ANUAL else AZUL for v in pm_est.values]
+        ax1.bar(range(len(pm_est)), pm_est.values, color=colores, zorder=2)
+        ax1.axhline(ECA_PM25_ANUAL, ls="-", color="gray", linewidth=1.4,
+                    label=f"ECA anual = {ECA_PM25_ANUAL} µg/m³")
+        ax1.axhline(ECA_PM25_24H, ls=":", color="lightgray", linewidth=1.0,
+                    label=f"ECA 24h = {ECA_PM25_24H} µg/m³ (referencial, no aplica directo a un "
+                          "promedio histórico)")
+        ax1.legend(fontsize=6.5, loc="upper right", framealpha=0.9)
+        ax1.set_xticks(range(len(pm_est)))
+        ax1.set_xticklabels(pm_est.index, rotation=45, ha="right", fontsize=8)
+        ax1.set_ylabel("PM2.5 (µg/m³)")
+        aplicar_estilo_mpl(ax1)
+        fig1.tight_layout()
+        st.pyplot(fig1, width="stretch")
+        n_excede = int((pm_est > ECA_PM25_ANUAL).sum())
+        if n_excede > 0:
+            st.caption(
+                f"Barras en rojo ({n_excede} de {len(pm_est)}): estaciones cuyo promedio histórico "
+                f"ya supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (D.S. N° 003-2017-MINAM) — el "
+                "estándar correcto para comparar un promedio de varios años. El ECA de 24h "
+                f"({ECA_PM25_24H} µg/m³, línea punteada) es el que usa el Panel 2 para clasificar "
+                "horas puntuales, no promedios de largo plazo."
+            )
+        else:
+            st.caption(
+                f"Ninguna estación supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (línea sólida) "
+                f"en promedio histórico — la más cercana es {pm_est.index[0]}, con "
+                f"{pm_est.iloc[0]:.1f} µg/m³. El ECA de 24h ({ECA_PM25_24H} µg/m³, línea punteada) "
+                "es el que usa el Panel 2 para horas puntuales, no aplica directo aquí. La brecha "
+                "entre estaciones sigue siendo la evidencia de que no toda Lima respira el mismo aire."
+            )
 
     # --- Correlación entre contaminantes ---------------------------------------------
     if len(cols) >= 2:
-        st.markdown("**Correlación entre contaminantes**")
-        st.caption(
-            "Cada celda mide qué tan juntos se mueven dos contaminantes (−1 a 1). "
-            "Valores cercanos a 1 (rojo) indican que suben y bajan a la vez, típico de "
-            "contaminantes con fuentes similares (tráfico, quema); cercanos a 0 (azul) "
-            "indican que no están relacionados."
-        )
-        corr = df[cols].corr()
-        fig2, ax2 = plt.subplots(figsize=(5.5, 4.5))
-        im = ax2.imshow(corr.values, cmap="coolwarm", vmin=-1, vmax=1)
-        ax2.set_xticks(range(len(cols)))
-        ax2.set_xticklabels(cols, rotation=45, ha="right", fontsize=8)
-        ax2.set_yticks(range(len(cols)))
-        ax2.set_yticklabels(cols, fontsize=8)
-        for i in range(len(cols)):
-            for j in range(len(cols)):
-                ax2.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center",
-                         fontsize=7, color="black")
-        fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
-        fig2.tight_layout()
-        st.pyplot(fig2, width="stretch")
+        with st.container(border=True):
+            st.markdown("**🔗 Correlación entre contaminantes**")
+            st.caption(
+                "Cada celda mide qué tan juntos se mueven dos contaminantes (−1 a 1). "
+                "Valores cercanos a 1 (rojo) indican que suben y bajan a la vez, típico de "
+                "contaminantes con fuentes similares (tráfico, quema); cercanos a 0 (azul) "
+                "indican que no están relacionados."
+            )
+            corr = df[cols].corr()
+            fig2, ax2 = plt.subplots(figsize=(5.5, 4.5))
+            im = ax2.imshow(corr.values, cmap=COLORMAP_DIVERGENTE, vmin=-1, vmax=1)
+            ax2.set_xticks(range(len(cols)))
+            ax2.set_xticklabels(cols, rotation=45, ha="right", fontsize=8)
+            ax2.set_yticks(range(len(cols)))
+            ax2.set_yticklabels(cols, fontsize=8)
+            for i in range(len(cols)):
+                for j in range(len(cols)):
+                    ax2.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center",
+                             fontsize=7, color="black")
+            fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+            fig2.tight_layout()
+            st.pyplot(fig2, width="stretch")
 
     # --- Clustering K-means ----------------------------------------------------------
-    st.markdown("### Clustering de estaciones (K-means)")
-    col_k, col_inercia, col_silueta = st.columns([2, 1, 1])
-    with col_k:
-        k = st.slider("Número de clusters (k)", 2, 6, 2,
-                      help="k = 2 separa naturalmente las 'Dos Limas' (alta vs baja contaminación).")
+    with st.container(border=True):
+        st.markdown("### 🧭 Clustering de estaciones (K-means)")
+        col_k, col_inercia, col_silueta = st.columns([2, 1, 1])
+        with col_k:
+            k = st.slider("Número de clusters (k)", 2, 6, 2,
+                          help="k = 2 separa naturalmente las 'Dos Limas' (alta vs baja contaminación).")
 
-    perfil = _perfil_por_estacion(df)
-    labels, coords, inercia, silueta = _clusters(perfil, k)
+        perfil = _perfil_por_estacion(df)
+        labels, coords, inercia, silueta = _clusters(perfil, k)
 
-    col_inercia.metric("Inercia", f"{inercia:.2f}",
-                        help="Útil para el método del codo al elegir k.")
-    col_silueta.metric("Silueta", f"{silueta:.3f}",
-                        help="Qué tan bien separado está cada punto de los clusters vecinos "
-                             "(rango −1 a 1; más alto es mejor).")
-    st.caption(
-        f"⚠️ Inercia y silueta calculadas sobre {len(perfil)} estaciones (una fila por "
-        "estación). Con tan pocos puntos, subir k suele dejar clusters de 1-2 miembros y "
-        "vuelve la silueta ruidosa — **no es comparable** con la del notebook de EDA, que se "
-        "calcula sobre ~515,000 filas a nivel hora-estación, una unidad de análisis distinta."
-    )
+        col_inercia.metric("Inercia", f"{inercia:.2f}",
+                            help="Útil para el método del codo al elegir k.")
+        col_silueta.metric("Silueta", f"{silueta:.3f}",
+                            help="Qué tan bien separado está cada punto de los clusters vecinos "
+                                 "(rango −1 a 1; más alto es mejor).")
+        st.caption(
+            f"⚠️ Inercia y silueta calculadas sobre {len(perfil)} estaciones (una fila por "
+            "estación). Con tan pocos puntos, subir k suele dejar clusters de 1-2 miembros y "
+            "vuelve la silueta ruidosa — **no es comparable** con la del notebook de EDA, que se "
+            "calcula sobre ~515,000 filas a nivel hora-estación, una unidad de análisis distinta."
+        )
 
-    fig3, ax3 = plt.subplots(figsize=(8, 5))
-    sc = ax3.scatter(coords[:, 0], coords[:, 1], c=labels, cmap="Set1", s=120, edgecolor="k")
-    for i, nombre in enumerate(perfil.index):
-        ax3.annotate(nombre, (coords[i, 0], coords[i, 1]), fontsize=7,
-                     xytext=(4, 4), textcoords="offset points")
-    ax3.set_xlabel("PCA 1")
-    ax3.set_ylabel("PCA 2")
-    ax3.set_title(f"Estaciones agrupadas por perfil de contaminación (k={k})")
-    fig3.tight_layout()
-    st.pyplot(fig3, width="stretch")
-    st.caption(
-        "Cada punto es una estación; el color indica su cluster. Los ejes (PCA 1, PCA 2) "
-        "son una proyección 2D solo para poder dibujar — el agrupamiento real se calcula "
-        "sobre todos los contaminantes a la vez, no sobre estos dos ejes."
-    )
+        fig3, ax3 = plt.subplots(figsize=(8, 5))
+        sc = ax3.scatter(coords[:, 0], coords[:, 1], c=labels, cmap=COLORMAP_CLUSTERS, s=120,
+                          edgecolor="k", zorder=2)
+        for i, nombre in enumerate(perfil.index):
+            ax3.annotate(nombre, (coords[i, 0], coords[i, 1]), fontsize=7,
+                         xytext=(4, 4), textcoords="offset points")
+        ax3.set_xlabel("PCA 1")
+        ax3.set_ylabel("PCA 2")
+        ax3.set_title(f"Estaciones agrupadas por perfil de contaminación (k={k})")
+        aplicar_estilo_mpl(ax3)
+        fig3.tight_layout()
+        st.pyplot(fig3, width="stretch")
+        st.caption(
+            "Cada punto es una estación; el color indica su cluster. Los ejes (PCA 1, PCA 2) "
+            "son una proyección 2D solo para poder dibujar — el agrupamiento real se calcula "
+            "sobre todos los contaminantes a la vez, no sobre estos dos ejes."
+        )
 
-    tabla = perfil.copy()
-    tabla.insert(0, "cluster", labels)
-    st.dataframe(tabla.sort_values("cluster").style.format("{:.1f}", subset=perfil.columns),
-                 width="stretch")
-    st.caption("Promedio histórico de cada contaminante por estación, agrupado por cluster asignado.")
+        tabla = perfil.copy()
+        tabla.insert(0, "cluster", labels)
+        st.dataframe(tabla.sort_values("cluster").style.format("{:.1f}", subset=perfil.columns),
+                     width="stretch")
+        st.caption("Promedio histórico de cada contaminante por estación, agrupado por cluster asignado.")
 
-    with st.expander("Detalles técnicos del clustering"):
-        st.markdown(
-            f"""
+        with st.expander("Detalles técnicos del clustering"):
+            st.markdown(
+                f"""
 - **Unidad de clustering:** cada estación, representada por el **promedio** de sus
   contaminantes ({', '.join(cols)}).
 - **Estandarización:** `StandardScaler` antes de K-means, para que ningún contaminante
@@ -224,7 +234,7 @@ def render(df=None):
 - **Visualización:** proyección **PCA 2D** solo para poder dibujar; el agrupamiento se
   hace sobre todas las variables estandarizadas.
 """
-        )
+            )
 
 
 # --- Demo aislada: uv run streamlit run src/panel_eda.py ----------------------------

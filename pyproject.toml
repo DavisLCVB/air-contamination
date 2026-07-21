@@ -11,7 +11,7 @@ dependencies = [
   "numpy>=2.4,<2.5",
   "pandas>=3.0.3",
   "pandas-stubs>=3.0.3.260530",
-  "pyarrow>=25.0.0",
+  "pyarrow>=16,<20",  # pyarrow>=20 con pandas 3.0.3 segfaultea en st.dataframe(...).style (ver preprocessing.py)
   "numba>=0.64",
   "quarto>=0.1.0",
   # --- Usadas por Rol A pero NO declaradas hasta ahora (deuda que se cierra) ---
