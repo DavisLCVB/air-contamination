@@ -413,7 +413,7 @@ def figura_matriz_confusion(
     ax.set_title(titulo or resultado.get("nombre", "Matriz de confusión"))
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
-    fig.savefig(ruta_png, dpi=130)
+    fig.savefig(ruta_png, dpi=130, bbox_inches="tight")
     plt.close(fig)
 
 
