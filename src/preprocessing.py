@@ -12,6 +12,15 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 
+# pandas 3.x activa por defecto el backend Arrow para columnas de texto
+# (future.infer_string). En esta combinación con pyarrow 25.x, llamar
+# `.unique()`/`.nunique()` sobre una columna de texto que salió de
+# `st.cache_data` y se vuelve a tocar en un rerun de Streamlit produce un
+# segfault del proceso (reproducido con AppTest: revienta en
+# pandas/core/arrays/arrow/array.py:unique -> pyarrow.compute). Se desactiva
+# para volver al dtype `object` clásico, estable en ese flujo.
+pd.set_option("future.infer_string", False)
+
 # --------------------------------------------------------------------------
 # Constantes finales (notebooks/01_eda.ipynb, celdas 3 y 22)
 # --------------------------------------------------------------------------

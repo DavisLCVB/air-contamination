@@ -13,6 +13,7 @@ a partir del resto de contaminantes, con manejo de desbalance e interpretabilida
 | Cartagena Valera Brush, Davis Leonardo | davis.cartagena@unmsm.edu.pe | 22200193 | A — Datos y EDA |
 | Lavado Torres, Gianmarco Gabriel | gianmarco.lavado@unmsm.edu.pe | 22200025 | B — Modelado y XAI |
 | Chilon Tintaya Monica Isabel |  |  | C — Series e infra |
+| Huayta, Piero | piale820@gmail.com |  | D — CRUD y reporte |
 
 
 ## Roles y responsabilidades
@@ -84,10 +85,12 @@ uv run streamlit run app.py
 │   └── air_contamination.csv          # crudo SENAMHI (versionado)
 ├── src/
 │   ├── preprocessing.py               # Rol A: carga, limpieza, imputación, constantes
+│   ├── panel_eda.py                   # Rol A: contenido del Panel 1 (importable por app.py)
 │   ├── models.py                      # Rol B: etiqueta, RF vs XGBoost, SMOTE, métricas, SHAP
 │   ├── panel_predictivo.py            # Rol B: contenido del Panel 2 (importable por app.py)
 │   ├── forecast.py                    # Rol C: serie temporal, modelos, MAPE/RMSE
-│   └── panel_forecast.py              # Rol C: contenido del Panel 3 (importable por app.py)
+│   ├── panel_forecast.py              # Rol C: contenido del Panel 3 (importable por app.py)
+│   └── panel_crud.py                  # Rol D: contenido del Panel 4, CRUD sobre SQLite
 ├── notebooks/
 │   ├── 01_eda.ipynb                   # Rol A: EDA + clustering
 │   ├── 02_modeling.ipynb              # Rol B: modelado + interpretabilidad

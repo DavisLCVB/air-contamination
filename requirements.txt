@@ -7,7 +7,7 @@
 
 # --- núcleo de datos ---
 numpy>=2.4,<2.5          # pin de Rol B: numba no soporta numpy>=2.5 (CONTEXTO_ROL_B §9)
-pandas>=2.2
+pandas>=3.0.3
 pyarrow>=16             # parquet (data/*.parquet)
 scipy>=1.13
 
@@ -26,4 +26,4 @@ joblib>=1.4
 statsmodels>=0.14.2     # Holt-Winters (ExponentialSmoothing) + SARIMAX
 
 # --- app / dashboard ---
-streamlit>=1.40
+streamlit>=1.59.1

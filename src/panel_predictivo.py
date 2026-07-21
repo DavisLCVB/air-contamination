@@ -149,7 +149,7 @@ manejo explícito del desbalance.
             }
         )
     tabla = pd.DataFrame(filas).set_index("modelo")
-    st.dataframe(tabla, use_container_width=True)
+    st.dataframe(tabla, width="stretch")
     st.caption(
         f"Mejor modelo por F1 de la clase minoritaria: **{mejor}**. "
         "Se justifica priorizar F1/recall de 'alta' porque el costo de no avisar una "
@@ -162,7 +162,12 @@ manejo explícito del desbalance.
         st.subheader("Matriz de confusión")
         cm = M.DIR_MODELOS / "confusion_matrix.png"
         if cm.exists():
-            st.image(str(cm), use_container_width=True)
+            st.image(str(cm), width="stretch")
+            st.caption(
+                "Filas = clase real, columnas = clase predicha. La diagonal son los "
+                "aciertos; fuera de la diagonal, los errores (falsos positivos y falsos "
+                "negativos) del modelo ganador."
+            )
         else:
             r = metrics["modelos"][mejor]["matriz_confusion"]
             st.write(r)
@@ -171,14 +176,24 @@ manejo explícito del desbalance.
         st.subheader("Importancia global (SHAP)")
         summ = M.DIR_MODELOS / f"{mejor}_shap_summary.png"
         if summ.exists():
-            st.image(str(summ), use_container_width=True)
+            st.image(str(summ), width="stretch")
+            st.caption(
+                "Cada punto es una hora del set de test. Arriba, los contaminantes que "
+                "más mueven la predicción en general; el color indica si ese contaminante "
+                "estaba alto (rojo) o bajo (azul) en esa hora."
+            )
         else:
             st.info("SHAP summary se genera con `uv run python src/models.py`.")
 
     force = M.DIR_MODELOS / f"{mejor}_shap_force.png"
     if force.exists():
         st.subheader("Explicación local (SHAP force plot)")
-        st.image(str(force), use_container_width=True)
+        st.image(str(force), width="stretch")
+        st.caption(
+            "Cómo se arma la predicción para UN caso puntual: cada contaminante empuja "
+            "la probabilidad hacia 'alta contaminación' (rojo) o hacia 'baja' (azul) "
+            "desde un valor base, hasta llegar a la probabilidad final del modelo."
+        )
 
     # --- Predicción interactiva (alimenta el CRUD de Rol D) ---------------------
     st.subheader("Probar una predicción")
@@ -188,6 +203,10 @@ manejo explícito del desbalance.
     )
     modelo = todo["rf"] if mejor.startswith("rf") else todo["xgb"]
 
+    st.caption(
+        "Ingresa una lectura de los otros contaminantes para esa hora y el modelo "
+        "estima si esa combinación corresponde a una hora de alta contaminación de PM2.5."
+    )
     cols = st.columns(len(M.FEATURES))
     valores: dict[str, float] = {}
     defaults = {"pm_10": 80.0, "so2": 10.0, "no2": 30.0, "o3": 15.0, "co": 800.0}

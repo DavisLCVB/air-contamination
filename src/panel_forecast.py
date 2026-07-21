@@ -51,7 +51,7 @@ def _computar(estacion, freq, periodos_test, horizonte, recortar):
 def render(df=None):
     """Dibuja el Panel 3. `df` se acepta por el contrato de app.py pero el cómputo se cachea aparte."""
     st.subheader("Panel 3 · Serie temporal y pronóstico de PM2.5")
-    st.caption("Rol C — pronóstico ≥ 4 períodos con MAPE y RMSE. Modelos: naive estacional, "
+    st.caption("Pronóstico ≥ 4 períodos con MAPE y RMSE. Modelos: naive estacional, "
                "Holt-Winters y SARIMA; se elige el de menor MAPE en el hold-out cronológico.")
 
     c1, c2, c3, c4 = st.columns([1.3, 1, 1, 1])
@@ -60,16 +60,22 @@ def render(df=None):
                                 help="TODAS = promedio de Lima. Compara ATE/PUENTE PIEDRA "
                                      "(alta) vs CAMPO DE MARTE (baja): las 'Dos Limas'.")
     with c2:
-        freq_lbl = st.radio("Frecuencia", list(_FREQS), index=0, horizontal=False)
+        freq_lbl = st.radio("Frecuencia", list(_FREQS), index=0, horizontal=False,
+                            help="A qué intervalo se agrega el PM2.5 antes de modelar "
+                                 "la serie (hora a hora es demasiado ruidoso para pronosticar).")
     with c3:
-        horizonte = st.slider("Horizonte (períodos a pronosticar)", 4, 12, F.HORIZONTE)
+        horizonte = st.slider("Horizonte (períodos a pronosticar)", 4, 12, F.HORIZONTE,
+                              help="Cuántos períodos hacia el futuro se proyectan, en la "
+                                   "unidad elegida en 'Frecuencia'.")
     with c4:
-        periodos_test = st.slider("Ventana de test", 4, 18, F.PERIODOS_TEST)
+        periodos_test = st.slider("Ventana de test", 4, 18, F.PERIODOS_TEST,
+                                  help="Cuántos períodos finales de la serie se separan como "
+                                       "hold-out para medir MAPE/RMSE antes de pronosticar el futuro.")
 
     recortar = st.checkbox(
         "Recortar cola con PM2.5 mayormente imputado (recomendado)", value=True,
         help="Evita pronosticar sobre tramos donde el PM2.5 es casi todo climatología "
-             "(ver CONTEXTO_ROL_A §4). No afecta a estaciones con dato real hasta el final.",
+             "(relleno estimado, no medido). No afecta a estaciones con dato real hasta el final.",
     )
 
     freq = _FREQS[freq_lbl]
@@ -87,22 +93,33 @@ def render(df=None):
     m2.metric("MAPE (test)", f"{fila_mejor['mape']:.2f} %")
     m3.metric("RMSE (test)", f"{fila_mejor['rmse']:.2f}")
     m4.metric("Puntos de la serie", f"{len(paq['serie'])}")
+    st.caption(
+        "MAPE = error porcentual promedio en el hold-out (más bajo es mejor); RMSE = "
+        "error en las mismas unidades que PM2.5. 'Mejor modelo' es el de menor MAPE "
+        "entre naive estacional, Holt-Winters y SARIMA."
+    )
 
-    st.pyplot(F.graficar(paq), use_container_width=True)
+    st.pyplot(F.graficar(paq), width="stretch")
+    st.caption(
+        "Serie histórica de PM2.5 y, al final, el tramo de test (real vs. predicho por "
+        "el modelo ganador) seguido del pronóstico hacia adelante."
+    )
 
     izq, der = st.columns([1, 1])
     with izq:
         st.markdown("**Comparación de modelos** (ordenada por MAPE, menor es mejor)")
+        st.caption("El valor resaltado en verde es el mínimo de cada métrica entre los tres modelos.")
         tabla = paq["tabla"].rename(columns={"mape": "MAPE %", "rmse": "RMSE", "mae": "MAE"})
         st.dataframe(tabla.style.format("{:.3f}").highlight_min(axis=0, color="#a3be8c55"),
                      width="stretch")
     with der:
         st.markdown(f"**Pronóstico — próximos {cfg['horizonte']} períodos**")
+        st.caption("Valores proyectados por el modelo ganador, reajustado sobre toda la serie disponible.")
         fut = paq["futuro"].copy()
         fut.index = fut.index.strftime("%Y-%m-%d")
         st.dataframe(fut.round(2), width="stretch")
 
-    with st.expander("Notas de modelado (Rol C)"):
+    with st.expander("Detalles técnicos del pronóstico"):
         st.markdown(
             f"""
 - **Objetivo:** `pm_25` promediado a frecuencia **{freq_lbl.lower()}** (período estacional

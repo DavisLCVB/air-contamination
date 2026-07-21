@@ -13,6 +13,10 @@ wheels/
 docs
 data/*.parquet
 
+# Base SQLite del Panel 4 (Rol D) — persistencia local de consultas, crece con
+# cada demo/uso; no debe versionarse (equivalente a data/*.parquet arriba).
+data/consultas.db
+
 # Jupyter
 .ipynb_checkpoints/
 
@@ -33,6 +37,7 @@ data/*.parquet
 models/*.pkl
 models/*.joblib
 models/*.png
+models/figuras/*.png
 !models/rf.pkl
 !models/xgb.pkl
 !models/confusion_matrix.png
