@@ -1,0 +1,26 @@
+# render.yaml — Blueprint de Render (raíz del repo). Un click = web service +
+# Postgres free. `DATABASE_URL` se inyecta sola vía `fromDatabase`, config.py
+# la reescribe de postgresql:// a postgresql+psycopg:// en runtime.
+
+databases:
+  - name: airquality-db
+    plan: free
+    databaseName: airquality
+    user: airquality
+
+services:
+  - type: web
+    name: dos-limas-webapp
+    runtime: docker
+    plan: free
+    dockerfilePath: ./webapp/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    numInstances: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: airquality-db
+          property: connectionString
+      - key: PYTHONPATH
+        value: /srv/src
