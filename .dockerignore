@@ -1,0 +1,29 @@
+# .dockerignore (raíz) — el build context real de `webapp/Dockerfile` es la
+# raíz del repo (`docker build -f webapp/Dockerfile .`), así que Docker lee
+# ESTE archivo, no `webapp/.dockerignore` (que también existe, documentando
+# la intención, pero solo lo respeta BuildKit vía `Dockerfile.dockerignore`).
+# data/air_contamination.csv y models/*.pkl NO se excluyen: el Dockerfile los
+# necesita dentro de la imagen (ver comentario en webapp/Dockerfile).
+
+.venv
+webapp/.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+webapp/tests
+.git
+.github
+.claude
+.agents
+.atl
+.obsidian
+.vscode
+webapp/docker-compose.yml
+webapp/.env
+webapp/.env.example
+notebooks
+**/*.ipynb
+**/.ipynb_checkpoints
+docs
+*.md
+!README.md

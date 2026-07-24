@@ -10,8 +10,13 @@ wheels/
 .venv
 .obsidian
 .atl
-docs
 data/*.parquet
+
+# Variables de entorno con credenciales reales (DATABASE_URL, etc.).
+# .env.example SÍ se versiona (solo placeholders); cualquier .env real NO.
+.env
+.env.*
+!.env.example
 
 # Base SQLite del Panel 4 (Rol D) — persistencia local de consultas, crece con
 # cada demo/uso; no debe versionarse (equivalente a data/*.parquet arriba).
