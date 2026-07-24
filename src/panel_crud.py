@@ -1,45 +1,19 @@
 """
 src/panel_crud.py — Panel 4: CRUD de consultas de predicción de calidad del aire.
 
-Proyecto: "Dos Limas, un mismo cielo" — Dashboard de calidad del aire
-(SENAMHI, Lima Metropolitana). Rol D (CRUD y reporte) — Piero Huayta.
+Implementa un CRUD completo sobre SQLite que registra "consultas de predicción":
+cada una guarda los datos de entrada (concentraciones de contaminantes) y la
+predicción devuelta por el modelo del Panel 2 (Random Forest, class_weight
+balanceado) — formulario de creación, listado, edición y eliminación, con
+timestamp automático.
 
-CONTRATO DE EQUIPO (definido por Rol C en app.py):
-  Este módulo vive en src/ y expone `render(df=None)`, igual que panel_eda,
-  panel_predictivo y panel_forecast. app.py lo carga automáticamente vía
-  importlib con `_panel("panel_crud", df, ...)`; no hay que tocar app.py.
-  El parámetro `df` (dataset limpio del Rol A) se recibe por contrato aunque el
-  CRUD gestione su propia persistencia en SQLite y no lo necesite.
+`_cargar_predictor()` resuelve el modelo en tres niveles: reutiliza
+`predecir_desde_entrada` de `panel_predictivo` (preferido), carga directamente
+el `.pkl`/`.joblib` serializado, o cae a un predictor heurístico de respaldo si
+ningún artefacto existe todavía, para que el CRUD siga siendo demostrable.
 
-Este módulo implementa el Panel 4 del dashboard: un CRUD completo sobre SQLite
-que registra "consultas de predicción". Cada consulta almacena los datos de
-entrada (concentraciones de contaminantes) y la predicción devuelta por el
-modelo del Rol B (Random Forest con class_weight='balanced'), tal como lo exige
-la rúbrica: «Formulario para guardar una consulta = datos de entrada +
-predicción devuelta; lista de consultas guardadas; botón editar y eliminar;
-timestamp automático».
-
-Conexión con el modelo de Naze (Rol B)
---------------------------------------
-`_cargar_predictor()` intenta, en este orden:
-  1. Reutilizar la función oficial `predecir_desde_entrada` de `panel_predictivo`
-     (contrato de CONTEXTO_ROL_B, sección 5) — es la vía preferida, no depende
-     del nombre de archivo del modelo.
-  2. Cargar directamente el modelo serializado con joblib, probando varios
-     nombres posibles (rf_classweight.joblib, rf.pkl, rf_classweight.pkl,
-     rf.joblib).
-  3. Si nada existe todavía, usar un predictor de respaldo basado en reglas para
-     que el CRUD siga siendo demostrable en la presentación.
-
-Integración (automática, no requiere editar app.py)
-----------------------------------------------------
-    # app.py de Rol C ya hace, dentro de la pestaña 4:
-    #   _panel("panel_crud", df, "Panel 4 ...", "Rol D", "...")
-    # que internamente importa este módulo y llama a render(df).
-
-Ejecución aislada para pruebas
-------------------------------
-    streamlit run src/panel_crud.py
+Expone `render(df=None)` igual que los demás paneles (demo aislada:
+streamlit run src/panel_crud.py).
 """
 
 from __future__ import annotations
@@ -86,11 +60,11 @@ DIR_SRC = _RAIZ / "src"
 
 NOMBRE_TABLA = "consultas"
 
-# Contaminantes usados como features del modelo del Rol B (pm_25 se excluye para
-# evitar fuga de la variable objetivo). El orden es el del contrato de Rol B.
+# Contaminantes usados como features del modelo del Panel 2 (pm_25 se excluye
+# para evitar fuga de la variable objetivo).
 FEATURES = ["pm_10", "so2", "no2", "o3", "co"]
 
-# Nombres candidatos del modelo Random Forest serializado por Naze.
+# Nombres candidatos del modelo Random Forest serializado.
 NOMBRES_MODELO = ["rf_classweight.joblib", "rf.pkl", "rf_classweight.pkl", "rf.joblib"]
 
 # Etiquetas legibles y valores por defecto de cada feature en el formulario.
@@ -228,7 +202,7 @@ def eliminar_consulta(id_consulta: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Integración con el modelo del Rol B (con respaldo)
+# Integración con el modelo del Panel 2 (con respaldo)
 # ---------------------------------------------------------------------------
 
 def _predecir_con_modelo(modelo, entrada: dict[str, float]) -> dict[str, Any]:
@@ -262,21 +236,21 @@ def _cargar_predictor() -> dict[str, Any]:
     if DIR_SRC.exists() and str(DIR_SRC) not in sys.path:
         sys.path.append(str(DIR_SRC))
 
-    # --- Opción 1 (preferida): función oficial de Naze ---
+    # --- Opción 1 (preferida): función oficial del Panel 2 ---
     try:
-        import models as modelo_rolb  # type: ignore
+        import models as modelo_panel2  # type: ignore
         from panel_predictivo import predecir_desde_entrada  # type: ignore
 
-        dir_modelos = getattr(modelo_rolb, "DIR_MODELOS", DIR_MODELOS)
+        dir_modelos = getattr(modelo_panel2, "DIR_MODELOS", DIR_MODELOS)
         for nombre in NOMBRES_MODELO:
             ruta = Path(dir_modelos) / nombre
             if ruta.exists():
-                rf = modelo_rolb.cargar_modelo(ruta)
+                rf = modelo_panel2.cargar_modelo(ruta)
 
                 def _predecir(entrada, _rf=rf):
                     return predecir_desde_entrada(_rf, entrada)
 
-                return {"modo": f"real - {nombre} (vía Rol B)", "predecir": _predecir}
+                return {"modo": f"real - {nombre} (vía Panel 2)", "predecir": _predecir}
     except Exception:  # noqa: BLE001 — se intenta la siguiente opción.
         pass
 
@@ -324,11 +298,15 @@ def _predecir_respaldo(entrada: dict[str, float]) -> dict[str, Any]:
 def _seccion_registro(predictor: dict[str, Any]) -> None:
     """Formulario de creación (Create): captura datos, predice y persiste."""
     st.subheader(":material/edit_note: Registrar nueva consulta")
+    st.caption(
+        "Completa los datos de contacto y las lecturas de contaminantes: el modelo "
+        "genera una predicción y la consulta queda guardada en el historial."
+    )
     st.caption(f"Predictor activo: **{predictor['modo']}**")
 
     if predictor["modo"] == "respaldo":
         st.info(
-            "Modelo del Rol B no encontrado: se usa un predictor de respaldo para "
+            "Modelo del Panel 2 no encontrado: se usa un predictor de respaldo para "
             "la demo. Genera el modelo real con `uv run python src/models.py`.",
             icon=":material/warning:",
         )
@@ -339,7 +317,8 @@ def _seccion_registro(predictor: dict[str, Any]) -> None:
             nombre = st.text_input("Nombre *", max_chars=120)
             correo = st.text_input("Correo", max_chars=120)
         with col_b:
-            tipo_consulta = st.selectbox("Tipo de consulta", TIPOS_CONSULTA)
+            tipo_consulta = st.segmented_control("Tipo de consulta", TIPOS_CONSULTA,
+                                                  default=TIPOS_CONSULTA[0])
             mensaje = st.text_area("Mensaje / observación", height=80)
 
         st.markdown("**Datos de entrada del modelo (contaminantes)**")
@@ -390,6 +369,7 @@ def _seccion_registro(predictor: dict[str, Any]) -> None:
 def _seccion_listado() -> None:
     """Listado de consultas (Read) en una tabla interactiva."""
     st.subheader(":material/list_alt: Consultas registradas")
+    st.caption("Historial completo: datos de contacto, lecturas ingresadas y predicción obtenida.")
     df = listar_consultas()
 
     if df.empty:
@@ -409,6 +389,10 @@ def _seccion_listado() -> None:
 def _seccion_edicion() -> None:
     """Edición de una consulta existente (Update)."""
     st.subheader(":material/edit: Editar consulta")
+    st.caption(
+        "Corrige los datos de contacto o el motivo de una consulta ya guardada. "
+        "No vuelve a ejecutar el modelo: la predicción original se conserva."
+    )
     df = listar_consultas()
 
     if df.empty:
@@ -427,12 +411,12 @@ def _seccion_edicion() -> None:
             nombre = st.text_input("Nombre", value=registro["nombre"] or "")
             correo = st.text_input("Correo", value=registro["correo"] or "")
         with col_b:
-            indice_tipo = (
-                TIPOS_CONSULTA.index(registro["tipo_consulta"])
-                if registro["tipo_consulta"] in TIPOS_CONSULTA
-                else 0
+            tipo_actual = (
+                registro["tipo_consulta"] if registro["tipo_consulta"] in TIPOS_CONSULTA
+                else TIPOS_CONSULTA[0]
             )
-            tipo_consulta = st.selectbox("Tipo de consulta", TIPOS_CONSULTA, index=indice_tipo)
+            tipo_consulta = st.segmented_control("Tipo de consulta", TIPOS_CONSULTA,
+                                                  default=tipo_actual)
             mensaje = st.text_area("Mensaje", value=registro["mensaje"] or "")
 
         guardar = st.form_submit_button("Guardar cambios", type="primary")
@@ -457,6 +441,7 @@ def _seccion_edicion() -> None:
 def _seccion_eliminacion() -> None:
     """Eliminación de una consulta (Delete) con confirmación explícita."""
     st.subheader(":material/delete: Eliminar consulta")
+    st.caption("Elimina permanentemente una consulta del historial. Esta acción no se puede deshacer.")
     df = listar_consultas()
 
     if df.empty:
@@ -485,15 +470,14 @@ def _seccion_eliminacion() -> None:
 def render(df=None) -> None:
     """Renderiza el Panel 4 completo (CRUD).
 
-    Firma según el contrato del equipo: `render(df=None)`. El parámetro `df`
-    (dataset limpio del Rol A) se acepta por compatibilidad con app.py; este
-    panel no lo necesita porque administra su propia persistencia en SQLite.
+    `df` se acepta por compatibilidad con el contrato de app.py; este panel no
+    lo necesita porque administra su propia persistencia en SQLite.
     """
     st.header(":material/folder_open: Panel 4 — CRUD de consultas y predicción")
     st.caption(
         "Registra consultas con los datos de entrada del modelo, obtén la "
-        "predicción del Rol B y administra el historial (crear, leer, editar, "
-        "eliminar). Persistencia local en SQLite."
+        "predicción del modelo del Panel 2 y administra el historial (crear, "
+        "leer, editar, eliminar). Persistencia local en SQLite."
     )
 
     try:

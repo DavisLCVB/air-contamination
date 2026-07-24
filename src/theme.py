@@ -1,17 +1,13 @@
 """theme.py — paleta Catppuccin (Mocha oscuro / Latte claro) compartida por los paneles.
 
-El modo activo se guarda en `st.session_state["modo_claro"]` (toggle en el
-sidebar de app.py). `paleta()` devuelve el diccionario de colores vigente y
-`aplicar_estilo_mpl` lo usa para que los gráficos matplotlib seudo respondan
-al mismo cambio que la UI nativa de Streamlit (ver `inyectar_css`).
+El modo activo se guarda en `st.session_state["modo_claro"]` (toggle en el sidebar
+de app.py). `paleta()` devuelve el diccionario de colores vigente; `aplicar_estilo_mpl`
+lo aplica a los gráficos matplotlib para que respondan al mismo cambio que la UI
+nativa de Streamlit (ver `inyectar_css`).
 
-`.streamlit/config.toml` define el tema oscuro (Mocha) como *default* del
-servidor — Streamlit no permite cambiar esa config en caliente desde Python,
-así que el modo claro se logra inyectando un `<style>` que sobreescribe los
-colores del chrome nativo (fondo, sidebar, texto). Es un mejor-esfuerzo: cubre
-los contenedores principales: los widgets muy internos de Streamlit podrían
-no recolorear al 100%; el selector de tema nativo (menú ☰ → Settings) sigue
-disponible como alternativa 100% soportada si algo no se ve bien.
+`.streamlit/config.toml` fija el tema oscuro (Mocha) como *default* del servidor,
+ya que Streamlit no expone una API para cambiarlo en caliente. El modo claro se
+logra inyectando CSS que sobreescribe el chrome nativo (fondo, sidebar, texto).
 """
 from __future__ import annotations
 
@@ -79,11 +75,14 @@ def colormap_divergente():
 
 def colormap_clusters():
     p = paleta()
-    return ListedColormap(
-        [p["MAUVE"], p["VERDE"], p["NARANJA"], p["AZUL"], p["PINK"], p["TEAL"],
-         p["AMARILLO"], p["LAVANDA"]],
-        name="catppuccin_clusters",
-    )
+    return ListedColormap(lista_colores_clusters(), name="catppuccin_clusters")
+
+
+def lista_colores_clusters() -> list[str]:
+    """Paleta categórica (hasta 8 clusters) en el orden que usan colormap_clusters y Altair."""
+    p = paleta()
+    return [p["MAUVE"], p["VERDE"], p["NARANJA"], p["AZUL"], p["PINK"], p["TEAL"],
+            p["AMARILLO"], p["LAVANDA"]]
 
 
 def aplicar_estilo_mpl(ax) -> None:
@@ -114,14 +113,30 @@ def aplicar_estilo_mpl(ax) -> None:
             texto.set_color(p["TEXTO"])
 
 
-def inyectar_css() -> None:
-    """Sobreescribe el chrome nativo de Streamlit con la paleta clara, si está activa.
+def aplicar_estilo_altair(chart):
+    """Aplica el tema (fondo, texto, grid, leyenda) vigente a un chart de Altair.
 
-    `.streamlit/config.toml` fija Mocha (oscuro) como tema de arranque del
-    servidor; Streamlit no expone una API para cambiarlo en caliente. Esto
-    inyecta CSS que repinta los contenedores principales (fondo, sidebar,
-    texto, botones) para simular el modo claro sin reiniciar el servidor.
+    Se usa con `st.altair_chart(..., theme=None)`: el theme="streamlit" nativo lee
+    el tema declarado en config.toml (siempre oscuro), no el toggle de esta app, así
+    que el color de cada chart se fija a mano igual que `aplicar_estilo_mpl`.
     """
+    p = paleta()
+    return (
+        chart
+        .configure(background=p["FONDO"])
+        .configure_view(strokeWidth=0)
+        .configure_axis(
+            labelColor=p["TEXTO"], titleColor=p["TEXTO"],
+            gridColor=p["SUPERFICIE_2"], domainColor=p["SUPERFICIE_2"],
+            tickColor=p["SUPERFICIE_2"],
+        )
+        .configure_legend(labelColor=p["TEXTO"], titleColor=p["TEXTO"])
+        .configure_title(color=p["TEXTO"])
+    )
+
+
+def inyectar_css() -> None:
+    """Repinta fondo, sidebar y texto con la paleta clara cuando el toggle está activo."""
     if not modo_claro():
         return
     p = paleta()

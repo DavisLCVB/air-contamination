@@ -1,22 +1,10 @@
-"""Panel 2 del dashboard — Predictivo (Rol B).
+"""Panel 2 del dashboard — Predictivo.
 
-Entrega el CONTENIDO del Panel 2 como una función `render(df)` para que Rol C la
-integre en `app.py` sin acoplarse a los detalles del modelado::
-
-    # dentro de app.py (Rol C)
-    from panel_predictivo import render
-    with tab_predictivo:
-        render(df)          # df = salida de preprocessing.cargar_y_limpiar
-
-También expone `predecir_desde_entrada(modelo, valores)` para que Rol D (Panel 4 CRUD)
-guarde "entrada + predicción devuelta" reutilizando exactamente el mismo modelo.
-
-Ejecución aislada (demo del Panel 2 sin la app integrada)::
-
-    uv run streamlit run src/panel_predictivo.py
+Expone `render(df)` con el contenido del panel y `predecir_desde_entrada(modelo,
+valores)`, reutilizada por el CRUD del Panel 4 para predecir con el mismo modelo.
 
 Estrategia de carga: primero intenta leer los artefactos ya entrenados de `models/`
-(rápido, ideal para deploy). Si no existen, los entrena una sola vez y los cachea.
+(rápido, ideal para deploy); si no existen, los entrena una sola vez y los cachea.
 """
 
 from __future__ import annotations
@@ -36,7 +24,7 @@ RUTA_XGB = M.DIR_MODELOS / "xgb.pkl"
 
 
 # --------------------------------------------------------------------------
-# Helpers SIN dependencia de Streamlit (reutilizables por Rol C y Rol D)
+# Helpers sin dependencia de Streamlit (reutilizables por app.py y el CRUD)
 # --------------------------------------------------------------------------
 
 
@@ -45,9 +33,8 @@ def predecir_desde_entrada(
 ) -> dict[str, Any]:
     """Predice a partir de un dict con los 5 contaminantes de entrada.
 
-    Contrato pensado para el CRUD de Rol D: recibe `{pm_10, so2, no2, o3, co}`
-    y devuelve `{etiqueta, clase, probabilidad, umbral}` — lo que se persiste como
-    "entrada + predicción devuelta".
+    Recibe `{pm_10, so2, no2, o3, co}` y devuelve `{etiqueta, clase, probabilidad,
+    umbral}` — lo que el CRUD del Panel 4 persiste como "entrada + predicción".
 
     Parameters
     ----------
@@ -93,13 +80,13 @@ def _obtener_todo(df: pd.DataFrame):
     """Carga artefactos de `models/` o, como fallback, entrena una sola vez (cacheado)."""
     import streamlit as st
 
-    @st.cache_resource(show_spinner="Preparando modelos del Panel 2...")
+    @st.cache_resource(show_spinner=False)
     def _cache(_df: pd.DataFrame):
         artefactos = _cargar_artefactos()
         if artefactos is not None:
             return {"origen": "disco", **artefactos}
-        # Fallback: entrenar en caliente (cold start). Recomendado para deploy:
-        # commitear models/*.pkl para evitar este costo (ver CONTEXTO_ROL_B.md).
+        # Fallback: entrenar en caliente (cold start). Para deploy conviene
+        # commitear models/*.pkl y evitar este costo.
         salida = M.entrenar_y_evaluar_todo(_df)
         return {
             "origen": "entrenado",
@@ -113,20 +100,26 @@ def _obtener_todo(df: pd.DataFrame):
 
 def render(df: pd.DataFrame | None = None) -> None:
     """Renderiza el Panel 2 (predictivo) dentro de la app de Streamlit."""
+    import altair as alt
     import streamlit as st
+
+    import theme
 
     if df is None:
         df = cargar_y_limpiar(str(M.RUTA_DATOS))
 
-    todo = _obtener_todo(df)
+    st.header(":material/smart_toy: Panel 2 — Predictivo: alta contaminación por PM2.5")
+
+    with st.skeleton(height=160):
+        todo = _obtener_todo(df)
     metrics = todo["metrics"]
     mejor = metrics["mejor_modelo"]
 
-    st.header(":material/smart_toy: Panel 2 — Predictivo: alta contaminación por PM2.5")
     with st.container(border=True):
+        st.subheader(":material/info: Planteamiento del problema")
         st.markdown(
             f"""
-**Problema.** Clasificar cada hora como *alta contaminación* cuando
+Clasificar cada hora como *alta contaminación* cuando
 `PM2.5 > {metrics['umbral_eca_pm25']:.0f} µg/m³`, usando los otros contaminantes
 ({', '.join(metrics['features'])}) como variables. Se excluye `pm_25` para evitar
 fuga de la variable objetivo, y se entrena solo con PM2.5 **medido** (no imputado).
@@ -158,23 +151,40 @@ manejo explícito del desbalance.
             "hora contaminada (FN) es mayor que una falsa alarma (FP)."
         )
 
-    # --- Matriz de confusión + SHAP (imágenes generadas por models.py) ----------
+    # --- Matriz de confusión (reactiva) + SHAP (imágenes generadas por models.py) ---
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1:
             st.subheader(":material/grid_view: Matriz de confusión")
-            cm = M.DIR_MODELOS / "confusion_matrix.png"
-            if cm.exists():
-                st.image(str(cm), width="stretch")
-                st.caption(
-                    "Filas = clase real, columnas = clase predicha. La diagonal son los "
-                    "aciertos; fuera de la diagonal, los errores (falsos positivos y falsos "
-                    "negativos) del modelo ganador."
-                )
-            else:
-                r = metrics["modelos"][mejor]["matriz_confusion"]
-                st.write(r)
-                st.info("Ejecuta `uv run python src/models.py` para generar la figura.")
+            p = theme.paleta()
+            cm = metrics["modelos"][mejor]["matriz_confusion"]
+            orden = ["Baja (0)", "Alta (1)"]
+            datos_cm = pd.DataFrame([
+                {"real": "Baja (0)", "predicha": "Baja (0)", "conteo": cm["tn"]},
+                {"real": "Baja (0)", "predicha": "Alta (1)", "conteo": cm["fp"]},
+                {"real": "Alta (1)", "predicha": "Baja (0)", "conteo": cm["fn"]},
+                {"real": "Alta (1)", "predicha": "Alta (1)", "conteo": cm["tp"]},
+            ])
+            fondo_cm = alt.Chart(datos_cm).mark_rect().encode(
+                x=alt.X("predicha:N", title="Clase predicha", sort=orden),
+                y=alt.Y("real:N", title="Clase real", sort=orden),
+                color=alt.Color("conteo:Q", title="Conteo",
+                                 scale=alt.Scale(range=[p["SUPERFICIE"], p["MAUVE"]])),
+                tooltip=[alt.Tooltip("real:N", title="Clase real"),
+                         alt.Tooltip("predicha:N", title="Clase predicha"),
+                         alt.Tooltip("conteo:Q", title="Conteo")],
+            )
+            texto_cm = alt.Chart(datos_cm).mark_text(fontSize=16, fontWeight="bold").encode(
+                x=alt.X("predicha:N", sort=orden), y=alt.Y("real:N", sort=orden),
+                text="conteo:Q", color=alt.value(p["TEXTO"]),
+            )
+            chart_cm = (fondo_cm + texto_cm).properties(height=280)
+            st.altair_chart(theme.aplicar_estilo_altair(chart_cm), theme=None, width="stretch")
+            st.caption(
+                "Filas = clase real, columnas = clase predicha. La diagonal son los "
+                "aciertos; fuera de la diagonal, los errores (falsos positivos y falsos "
+                "negativos) del modelo ganador."
+            )
         with col2:
             st.subheader(":material/science: Importancia global (SHAP)")
             summ = M.DIR_MODELOS / f"{mejor}_shap_summary.png"
@@ -199,7 +209,7 @@ manejo explícito del desbalance.
                 "desde un valor base, hasta llegar a la probabilidad final del modelo."
             )
 
-    # --- Predicción interactiva (alimenta el CRUD de Rol D) ---------------------
+    # --- Predicción interactiva (alimenta el CRUD del Panel 4) ------------------
     with st.container(border=True):
         st.subheader(":material/play_circle: Probar una predicción")
         umbral = st.slider(
@@ -212,19 +222,21 @@ manejo explícito del desbalance.
             "Ingresa una lectura de los otros contaminantes para esa hora y el modelo "
             "estima si esa combinación corresponde a una hora de alta contaminación de PM2.5."
         )
-        cols = st.columns(len(M.FEATURES))
-        valores: dict[str, float] = {}
         defaults = {"pm_10": 80.0, "so2": 10.0, "no2": 30.0, "o3": 15.0, "co": 800.0}
-        for c, feat in zip(cols, M.FEATURES):
-            valores[feat] = c.number_input(feat, min_value=0.0, value=defaults.get(feat, 0.0))
+        with st.form("form_prediccion_interactiva", border=False):
+            cols = st.columns(len(M.FEATURES))
+            valores: dict[str, float] = {}
+            for c, feat in zip(cols, M.FEATURES):
+                valores[feat] = c.number_input(feat, min_value=0.0, value=defaults.get(feat, 0.0))
+            enviado = st.form_submit_button("Predecir", type="primary")
 
-        if st.button("Predecir", type="primary"):
+        if enviado:
             res = predecir_desde_entrada(modelo, valores, umbral=umbral)
             etiqueta = res["etiqueta"]
             (st.error if res["clase"] == 1 else st.success)(
                 f"{etiqueta} · probabilidad={res['probabilidad']:.3f} (umbral={umbral:.2f})"
             )
-            # Se devuelve el dict para que Rol D lo persista en el CRUD (Panel 4).
+            # Guardado en session_state para que el CRUD del Panel 4 lo reutilice.
             st.session_state["ultima_prediccion"] = {**valores, **res}
 
     if todo["origen"] == "entrenado":

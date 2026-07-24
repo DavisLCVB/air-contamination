@@ -1,24 +1,17 @@
 """
 panel_forecast.py — Panel 3 (Series temporales) del dashboard.
 
-Contrato de integración (igual que Rol B / panel_predictivo.py):
-
-    # en app.py
-    from panel_forecast import render
-    with tab_series:
-        render(df)          # df = preprocessing.cargar_y_limpiar(RUTA_DATOS)
-
-- `render(df=None)` carga el df por su cuenta si no se le pasa (para probar aislado).
-- Demo aislada:  uv run streamlit run src/panel_forecast.py
-- Toda la lógica de series vive en forecast.py; este archivo es solo la UI.
-
-Autor: Rol C.
+Expone `render(df=None)`: toda la lógica de series vive en forecast.py, este
+archivo es solo la UI (demo aislada: uv run streamlit run src/panel_forecast.py).
 """
 from __future__ import annotations
 
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 import forecast as F
+import theme
 from preprocessing import cargar_y_limpiar
 
 _ESTACIONES = [
@@ -34,7 +27,7 @@ def _cargar_df():
     return cargar_y_limpiar(str(F.RUTA_DATOS))
 
 
-@st.cache_data(show_spinner=True, ttl=3600)
+@st.cache_data(show_spinner=False, ttl=3600)
 def _computar(estacion, freq, periodos_test, horizonte, recortar):
     """Corre serie -> comparar -> mejor -> futuro y devuelve solo objetos ligeros (cacheable)."""
     df = _cargar_df()
@@ -55,16 +48,17 @@ def render(df=None):
                "Holt-Winters y SARIMA; se elige el de menor MAPE en el hold-out cronológico.")
 
     with st.container(border=True):
-        st.markdown("**:material/tune: Configuración del pronóstico**")
+        st.subheader(":material/tune: Configuración del pronóstico")
+        st.caption("Define qué serie modelar y con qué parámetros evaluar el pronóstico.")
         c1, c2, c3, c4 = st.columns([1.3, 1, 1, 1])
         with c1:
             estacion = st.selectbox("Estación", _ESTACIONES, index=0,
                                     help="TODAS = promedio de Lima. Compara ATE/PUENTE PIEDRA "
                                          "(alta) vs CAMPO DE MARTE (baja): las 'Dos Limas'.")
         with c2:
-            freq_lbl = st.radio("Frecuencia", list(_FREQS), index=0, horizontal=False,
-                                help="A qué intervalo se agrega el PM2.5 antes de modelar "
-                                     "la serie (hora a hora es demasiado ruidoso para pronosticar).")
+            freq_lbl = st.segmented_control("Frecuencia", list(_FREQS), default=list(_FREQS)[0],
+                                            help="A qué intervalo se agrega el PM2.5 antes de modelar "
+                                                 "la serie (hora a hora es demasiado ruidoso para pronosticar).")
         with c3:
             horizonte = st.slider("Horizonte (períodos a pronosticar)", 4, 12, F.HORIZONTE,
                                   help="Cuántos períodos hacia el futuro se proyectan, en la "
@@ -74,7 +68,7 @@ def render(df=None):
                                       help="Cuántos períodos finales de la serie se separan como "
                                            "hold-out para medir MAPE/RMSE antes de pronosticar el futuro.")
 
-        recortar = st.checkbox(
+        recortar = st.toggle(
             "Recortar cola con PM2.5 mayormente imputado (recomendado)", value=True,
             help="Evita pronosticar sobre tramos donde el PM2.5 es casi todo climatología "
                  "(relleno estimado, no medido). No afecta a estaciones con dato real hasta el final.",
@@ -82,7 +76,8 @@ def render(df=None):
 
     freq = _FREQS[freq_lbl]
     try:
-        paq = _computar(estacion, freq, periodos_test, horizonte, recortar)
+        with st.skeleton(height=160):
+            paq = _computar(estacion, freq, periodos_test, horizonte, recortar)
     except ValueError as e:
         st.error(f"No se pudo construir la serie: {e}")
         return
@@ -91,34 +86,77 @@ def render(df=None):
     fila_mejor = paq["tabla"].loc[mejor]
 
     with st.container(border=True):
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Mejor modelo", mejor.replace("_", " ").title())
-        m2.metric("MAPE (test)", f"{fila_mejor['mape']:.2f} %")
-        m3.metric("RMSE (test)", f"{fila_mejor['rmse']:.2f}")
-        m4.metric("Puntos de la serie", f"{len(paq['serie'])}")
+        with st.container(horizontal=True):
+            st.metric("Mejor modelo", mejor.replace("_", " ").title(), border=True)
+            st.metric("MAPE (test)", f"{fila_mejor['mape']:.2f} %", border=True)
+            st.metric("RMSE (test)", f"{fila_mejor['rmse']:.2f}", border=True)
+            st.metric("Puntos de la serie", f"{len(paq['serie'])}", border=True)
         st.caption(
             "MAPE = error porcentual promedio en el hold-out (más bajo es mejor); RMSE = "
             "error en las mismas unidades que PM2.5. 'Mejor modelo' es el de menor MAPE "
             "entre naive estacional, Holt-Winters y SARIMA."
         )
 
-        st.pyplot(F.graficar(paq), width="stretch")
-        st.caption(
-            "Serie histórica de PM2.5 y, al final, el tramo de test (real vs. predicho por "
-            "el modelo ganador) seguido del pronóstico hacia adelante."
+        st.subheader(":material/show_chart: Serie histórica y pronóstico")
+
+        p = theme.paleta()
+        serie = paq["serie"]
+        yhat_test = paq["resultados"][mejor]["yhat"]
+        fut = paq["futuro"]
+
+        etiqueta_ajuste = f"Ajuste test ({mejor})"
+        colores_serie = {"Histórico": p["TEXTO"], etiqueta_ajuste: p["ROJO"], "Pronóstico": p["AZUL"]}
+        df_lineas = pd.concat([
+            pd.DataFrame({"fecha": serie.index, "valor": serie.values, "serie": "Histórico"}),
+            pd.DataFrame({"fecha": yhat_test.index, "valor": yhat_test.values, "serie": etiqueta_ajuste}),
+            pd.DataFrame({"fecha": fut.index, "valor": fut["yhat"].values, "serie": "Pronóstico"}),
+        ], ignore_index=True)
+
+        capas = []
+        if "lo" in fut.columns:
+            df_banda = pd.DataFrame({"fecha": fut.index, "lo": fut["lo"].values, "hi": fut["hi"].values})
+            capas.append(
+                alt.Chart(df_banda).mark_area(opacity=0.18, color=p["AZUL"])
+                .encode(x="fecha:T", y="lo:Q", y2="hi:Q")
+            )
+
+        lineas = alt.Chart(df_lineas).mark_line().encode(
+            x=alt.X("fecha:T", title=None),
+            y=alt.Y("valor:Q", title="PM2.5 (µg/m³)"),
+            color=alt.Color("serie:N", title=None,
+                             scale=alt.Scale(domain=list(colores_serie), range=list(colores_serie.values()))),
+            strokeDash=alt.StrokeDash("serie:N",
+                             scale=alt.Scale(domain=list(colores_serie), range=[[1, 0], [6, 3], [1, 0]])),
+            tooltip=[alt.Tooltip("fecha:T", title="Fecha"), alt.Tooltip("serie:N", title="Serie"),
+                     alt.Tooltip("valor:Q", title="PM2.5", format=".1f")],
         )
+        capas.append(lineas)
+
+        titulo = (f"PM2.5 — {cfg['estacion']} · mejor: {mejor} · "
+                  f"MAPE {fila_mejor['mape']:.1f}% · RMSE {fila_mejor['rmse']:.1f}")
+        chart_serie = alt.layer(*capas).properties(height=340, title=titulo)
+
+        col_chart, col_texto = st.columns([2, 1])
+        with col_chart:
+            st.altair_chart(theme.aplicar_estilo_altair(chart_serie), theme=None, width="stretch")
+        with col_texto:
+            st.caption(
+                "Serie histórica de PM2.5 y, al final, el tramo de test (real vs. predicho por "
+                "el modelo ganador) seguido del pronóstico hacia adelante."
+            )
 
     izq, der = st.columns([1, 1])
     with izq:
         with st.container(border=True):
-            st.markdown("**:material/bar_chart: Comparación de modelos** (ordenada por MAPE, menor es mejor)")
-            st.caption("El valor resaltado en verde es el mínimo de cada métrica entre los tres modelos.")
+            st.subheader(":material/bar_chart: Comparación de modelos")
+            st.caption("Ordenada por MAPE (menor es mejor); el valor resaltado en verde es el "
+                       "mínimo de cada métrica entre los tres modelos.")
             tabla = paq["tabla"].rename(columns={"mape": "MAPE %", "rmse": "RMSE", "mae": "MAE"})
             st.dataframe(tabla.style.format("{:.3f}").highlight_min(axis=0, color="#a3be8c55"),
                          width="stretch")
     with der:
         with st.container(border=True):
-            st.markdown(f"**:material/insights: Pronóstico — próximos {cfg['horizonte']} períodos**")
+            st.subheader(f":material/insights: Pronóstico — próximos {cfg['horizonte']} períodos")
             st.caption("Valores proyectados por el modelo ganador, reajustado sobre toda la serie disponible.")
             fut = paq["futuro"].copy()
             fut.index = fut.index.strftime("%Y-%m-%d")
@@ -140,7 +178,6 @@ def render(df=None):
         )
 
 
-# --- Demo aislada: uv run streamlit run src/panel_forecast.py -----------------------
 if __name__ == "__main__":
     st.set_page_config(page_title="Panel 3 · Pronóstico PM2.5", layout="wide")
     render()

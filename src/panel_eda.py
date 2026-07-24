@@ -1,21 +1,13 @@
 """
 panel_eda.py — Panel 1 (EDA + Clustering) del dashboard.
 
-Contrato de integración (igual que Rol B / panel_predictivo.py y Rol C / panel_forecast.py):
-
-    # en app.py
-    from panel_eda import render
-    with tab_eda:
-        render(df)          # df = preprocessing.cargar_y_limpiar(RUTA_DATOS)
-
-- `render(df=None)` carga el df por su cuenta si no se le pasa (para probar aislado).
-- Demo aislada:  uv run streamlit run src/panel_eda.py
-- La limpieza y la semilla oficial (SEED) vienen de Rol A (preprocessing.py).
-
-Autor: Rol A.
+Expone `render(df=None)`: dibuja el perfil de contaminación por estación y el
+clustering K-means. Si no se le pasa `df`, lo carga por su cuenta (demo aislada:
+uv run streamlit run src/panel_eda.py).
 """
 from __future__ import annotations
 
+import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -23,7 +15,7 @@ import streamlit as st
 from preprocessing import cargar_y_limpiar, SEED
 import theme
 
-try:  # la lista de contaminantes la define Rol A; hay fallback por si cambia el nombre
+try:
     from preprocessing import CONTAMINANTES
 except Exception:  # pragma: no cover
     CONTAMINANTES = ["pm_10", "pm_25", "so2", "no2", "o3", "co"]
@@ -90,20 +82,18 @@ def render(df=None):
 
     cols = _contaminantes_presentes(df)
     p = theme.paleta()
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
 
     # --- Resumen general -------------------------------------------------------------
     with st.container(border=True):
-        st.markdown("**:material/summarize: Resumen del dataset**")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Filas", f"{len(df):,}")
-        c2.metric("Estaciones", f"{df[COL_ESTACION].nunique()}")
+        st.subheader(":material/summarize: Resumen del dataset")
         fechas = pd.to_datetime(df[COL_FECHA])
-        c3.metric("Rango", f"{fechas.min().year}–{fechas.max().year}")
-        if COL_IMPUTADO in df.columns:
-            c4.metric("PM2.5 imputado", f"{df[COL_IMPUTADO].astype(float).mean() * 100:.1f} %")
+        with st.container(horizontal=True):
+            st.metric("Filas", f"{len(df):,}", border=True)
+            st.metric("Estaciones", f"{df[COL_ESTACION].nunique()}", border=True)
+            st.metric("Rango", f"{fechas.min().year}–{fechas.max().year}", border=True)
+            if COL_IMPUTADO in df.columns:
+                st.metric("PM2.5 imputado", f"{df[COL_IMPUTADO].astype(float).mean() * 100:.1f} %",
+                          border=True)
         st.caption(
             "Filas y estaciones tras la limpieza; 'PM2.5 imputado' es el % de horas donde "
             "el dato no llegó de la estación y se rellenó (interpolación o climatología), "
@@ -112,31 +102,35 @@ def render(df=None):
 
     # --- PM2.5 medio por estación (las 'Dos Limas') ----------------------------------
     with st.container(border=True):
-        st.markdown(
-            "**:material/location_city: PM2.5 promedio por estación** (línea sólida = ECA anual 25 µg/m³, la "
-            "comparación correcta para un promedio histórico multi-año; línea punteada "
-            "tenue = ECA 24h, referencial)"
-        )
+        st.subheader(":material/location_city: PM2.5 promedio por estación")
+
         pm_est = df.groupby(COL_ESTACION)["pm_25"].mean().sort_values(ascending=False)
 
-        fig1, ax1 = plt.subplots(figsize=(10, 3.8))
-        colores = [p["ROJO"] if v > ECA_PM25_ANUAL else p["AZUL"] for v in pm_est.values]
-        ax1.bar(range(len(pm_est)), pm_est.values, color=colores, zorder=2)
-        ax1.axhline(ECA_PM25_ANUAL, ls="-", color=p["REFERENCIA"], linewidth=1.4,
-                    label=f"ECA anual = {ECA_PM25_ANUAL} µg/m³")
-        ax1.axhline(ECA_PM25_24H, ls=":", color=p["REFERENCIA_TENUE"], linewidth=1.0,
-                    label=f"ECA 24h = {ECA_PM25_24H} µg/m³ (referencial, no aplica directo a un "
-                          "promedio histórico)")
-        ax1.legend(fontsize=6.5, loc="upper right", framealpha=0.9)
-        ax1.set_xticks(range(len(pm_est)))
-        ax1.set_xticklabels(pm_est.index, rotation=45, ha="right", fontsize=8)
-        ax1.set_ylabel("PM2.5 (µg/m³)")
-        theme.aplicar_estilo_mpl(ax1)
-        fig1.tight_layout()
-        st.pyplot(fig1, width="stretch")
+        etiqueta_excede = f"> ECA anual ({ECA_PM25_ANUAL} µg/m³)"
+        etiqueta_normal = f"≤ ECA anual ({ECA_PM25_ANUAL} µg/m³)"
+        datos_barra = pm_est.reset_index()
+        datos_barra.columns = [COL_ESTACION, "pm25"]
+        datos_barra["categoria"] = np.where(datos_barra["pm25"] > ECA_PM25_ANUAL,
+                                             etiqueta_excede, etiqueta_normal)
+
+        barras = alt.Chart(datos_barra).mark_bar().encode(
+            x=alt.X(f"{COL_ESTACION}:N", sort="-y", title=None, axis=alt.Axis(labelAngle=-40)),
+            y=alt.Y("pm25:Q", title="PM2.5 (µg/m³)"),
+            color=alt.Color("categoria:N", title=None,
+                             scale=alt.Scale(domain=[etiqueta_excede, etiqueta_normal],
+                                             range=[p["ROJO"], p["AZUL"]])),
+            tooltip=[alt.Tooltip(f"{COL_ESTACION}:N", title="Estación"),
+                     alt.Tooltip("pm25:Q", title="PM2.5 promedio", format=".1f")],
+        )
+        linea_anual = alt.Chart(pd.DataFrame({"y": [ECA_PM25_ANUAL]})).mark_rule(
+            color=p["REFERENCIA"], strokeWidth=1.4).encode(y="y:Q")
+        linea_24h = alt.Chart(pd.DataFrame({"y": [ECA_PM25_24H]})).mark_rule(
+            color=p["REFERENCIA_TENUE"], strokeDash=[5, 3]).encode(y="y:Q")
+
+        chart1 = (barras + linea_anual + linea_24h).properties(height=340)
         n_excede = int((pm_est > ECA_PM25_ANUAL).sum())
         if n_excede > 0:
-            st.caption(
+            texto_barras = (
                 f"Barras en rojo ({n_excede} de {len(pm_est)}): estaciones cuyo promedio histórico "
                 f"ya supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (D.S. N° 003-2017-MINAM) — el "
                 "estándar correcto para comparar un promedio de varios años. El ECA de 24h "
@@ -144,7 +138,7 @@ def render(df=None):
                 "horas puntuales, no promedios de largo plazo."
             )
         else:
-            st.caption(
+            texto_barras = (
                 f"Ninguna estación supera el ECA **anual** de {ECA_PM25_ANUAL} µg/m³ (línea sólida) "
                 f"en promedio histórico — la más cercana es {pm_est.index[0]}, con "
                 f"{pm_est.iloc[0]:.1f} µg/m³. El ECA de 24h ({ECA_PM25_24H} µg/m³, línea punteada) "
@@ -152,40 +146,66 @@ def render(df=None):
                 "entre estaciones sigue siendo la evidencia de que no toda Lima respira el mismo aire."
             )
 
+        col_chart, col_texto = st.columns([2, 1])
+        with col_chart:
+            st.altair_chart(theme.aplicar_estilo_altair(chart1), theme=None, width="stretch")
+        with col_texto:
+            st.caption(
+                "Compara el promedio histórico de cada estación contra el ECA anual "
+                f"(línea sólida, {ECA_PM25_ANUAL} µg/m³) y el ECA de 24h (línea punteada, "
+                f"{ECA_PM25_24H} µg/m³, solo referencial para un promedio multi-año)."
+            )
+            st.caption(texto_barras)
+
     # --- Correlación entre contaminantes ---------------------------------------------
     if len(cols) >= 2:
         with st.container(border=True):
-            st.markdown("**:material/link: Correlación entre contaminantes**")
-            st.caption(
-                "Cada celda mide qué tan juntos se mueven dos contaminantes (−1 a 1). "
-                "Valores cercanos a 1 (rojo) indican que suben y bajan a la vez, típico de "
-                "contaminantes con fuentes similares (tráfico, quema); cercanos a 0 (azul) "
-                "indican que no están relacionados."
-            )
+            st.subheader(":material/link: Correlación entre contaminantes")
+
             corr = df[cols].corr()
-            fig2, ax2 = plt.subplots(figsize=(5.5, 4.5))
-            fig2.patch.set_facecolor(p["FONDO"])
-            ax2.set_facecolor(p["SUPERFICIE"])
-            im = ax2.imshow(corr.values, cmap=theme.colormap_divergente(), vmin=-1, vmax=1)
-            ax2.set_xticks(range(len(cols)))
-            ax2.set_xticklabels(cols, rotation=45, ha="right", fontsize=8)
-            ax2.set_yticks(range(len(cols)))
-            ax2.set_yticklabels(cols, fontsize=8)
-            ax2.tick_params(colors=p["TEXTO"], labelcolor=p["TEXTO"])
-            for lado in ax2.spines.values():
-                lado.set_visible(False)
-            for i in range(len(cols)):
-                for j in range(len(cols)):
-                    ax2.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center",
-                             fontsize=7, color=p["TEXTO"])
-            barra = fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
-            barra.ax.yaxis.set_tick_params(color=p["TEXTO"], labelcolor=p["TEXTO"])
-            fig2.tight_layout()
-            st.pyplot(fig2, width="stretch")
+            corr_largo = (
+                corr.reset_index()
+                .melt(id_vars="index", var_name="contaminante_2", value_name="correlacion")
+                .rename(columns={"index": "contaminante_1"})
+            )
+
+            heatmap = alt.Chart(corr_largo).mark_rect().encode(
+                x=alt.X("contaminante_2:N", title=None, sort=cols),
+                y=alt.Y("contaminante_1:N", title=None, sort=cols),
+                color=alt.Color("correlacion:Q", title="Correlación",
+                                 scale=alt.Scale(domain=[-1, 0, 1],
+                                                 range=[p["AZUL"], p["SUPERFICIE_2"], p["ROJO"]])),
+                tooltip=[alt.Tooltip("contaminante_1:N", title="Contaminante 1"),
+                         alt.Tooltip("contaminante_2:N", title="Contaminante 2"),
+                         alt.Tooltip("correlacion:Q", title="Correlación", format=".2f")],
+            )
+            texto = alt.Chart(corr_largo).mark_text(fontSize=11).encode(
+                x=alt.X("contaminante_2:N", sort=cols),
+                y=alt.Y("contaminante_1:N", sort=cols),
+                text=alt.Text("correlacion:Q", format=".2f"),
+                color=alt.condition("abs(datum.correlacion) > 0.6",
+                                     alt.value(p["FONDO"]), alt.value(p["TEXTO"])),
+            )
+            chart2 = (heatmap + texto).properties(height=380)
+
+            col_chart, col_texto = st.columns([2, 1])
+            with col_chart:
+                st.altair_chart(theme.aplicar_estilo_altair(chart2), theme=None, width="stretch")
+            with col_texto:
+                st.caption(
+                    "Cada celda mide qué tan juntos se mueven dos contaminantes (−1 a 1). "
+                    "Valores cercanos a 1 (rojo) indican que suben y bajan a la vez, típico de "
+                    "contaminantes con fuentes similares (tráfico, quema); cercanos a 0 (azul) "
+                    "indican que no están relacionados."
+                )
 
     # --- Clustering K-means ----------------------------------------------------------
     with st.container(border=True):
-        st.markdown("### :material/scatter_plot: Clustering de estaciones (K-means)")
+        st.subheader(":material/scatter_plot: Clustering de estaciones (K-means)")
+        st.caption(
+            "Agrupa las estaciones según su perfil de contaminación (no según ubicación "
+            "geográfica) para verificar si las 'Dos Limas' emergen como clusters propios."
+        )
         col_k, col_inercia, col_silueta = st.columns([2, 1, 1])
         with col_k:
             k = st.slider("Número de clusters (k)", 2, 6, 2,
@@ -206,23 +226,38 @@ def render(df=None):
             "calcula sobre ~515,000 filas a nivel hora-estación, una unidad de análisis distinta."
         )
 
-        fig3, ax3 = plt.subplots(figsize=(8, 5))
-        sc = ax3.scatter(coords[:, 0], coords[:, 1], c=labels, cmap=theme.colormap_clusters(), s=120,
-                          edgecolor=p["TEXTO"], linewidth=0.8, zorder=2)
-        for i, nombre in enumerate(perfil.index):
-            ax3.annotate(nombre, (coords[i, 0], coords[i, 1]), fontsize=7, color=p["TEXTO"],
-                         xytext=(4, 4), textcoords="offset points")
-        ax3.set_xlabel("PCA 1")
-        ax3.set_ylabel("PCA 2")
-        ax3.set_title(f"Estaciones agrupadas por perfil de contaminación (k={k})")
-        theme.aplicar_estilo_mpl(ax3)
-        fig3.tight_layout()
-        st.pyplot(fig3, width="stretch")
-        st.caption(
-            "Cada punto es una estación; el color indica su cluster. Los ejes (PCA 1, PCA 2) "
-            "son una proyección 2D solo para poder dibujar — el agrupamiento real se calcula "
-            "sobre todos los contaminantes a la vez, no sobre estos dos ejes."
+        datos_cluster = pd.DataFrame({
+            "estacion": perfil.index,
+            "pca1": coords[:, 0],
+            "pca2": coords[:, 1],
+            "cluster": labels.astype(str),
+        })
+        scatter = alt.Chart(datos_cluster).mark_circle(
+            size=180, opacity=0.9, stroke=p["TEXTO"], strokeWidth=0.8
+        ).encode(
+            x=alt.X("pca1:Q", title="PCA 1"),
+            y=alt.Y("pca2:Q", title="PCA 2"),
+            color=alt.Color("cluster:N", title="Cluster",
+                             scale=alt.Scale(range=theme.lista_colores_clusters())),
+            tooltip=[alt.Tooltip("estacion:N", title="Estación"),
+                     alt.Tooltip("cluster:N", title="Cluster")],
         )
+        etiquetas = alt.Chart(datos_cluster).mark_text(
+            dx=8, dy=-8, fontSize=9, align="left", color=p["TEXTO"]
+        ).encode(x="pca1:Q", y="pca2:Q", text="estacion:N")
+
+        chart3 = (scatter + etiquetas).properties(
+            height=380, title=f"Estaciones agrupadas por perfil de contaminación (k={k})"
+        )
+        col_chart, col_texto = st.columns([2, 1])
+        with col_chart:
+            st.altair_chart(theme.aplicar_estilo_altair(chart3), theme=None, width="stretch")
+        with col_texto:
+            st.caption(
+                "Cada punto es una estación; el color indica su cluster. Los ejes (PCA 1, PCA 2) "
+                "son una proyección 2D solo para poder dibujar — el agrupamiento real se calcula "
+                "sobre todos los contaminantes a la vez, no sobre estos dos ejes."
+            )
 
         tabla = perfil.copy()
         tabla.insert(0, "cluster", labels)
@@ -244,7 +279,6 @@ def render(df=None):
             )
 
 
-# --- Demo aislada: uv run streamlit run src/panel_eda.py ----------------------------
 if __name__ == "__main__":
     st.set_page_config(page_title="Panel 1 · EDA & Clustering", layout="wide")
     render()
