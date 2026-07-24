@@ -1,7 +1,3 @@
-"""Generadores de figuras estáticas (matplotlib/SHAP) para el Panel 2, el Panel 3 y
-el reporte/notebooks. No son parte del cálculo (`core/`): son la representación
-visual de resultados ya calculados.
-"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,7 +9,6 @@ from application import theme
 
 
 def figura_matriz_confusion(resultado: dict, ruta_png: Path, titulo: str | None = None) -> None:
-    """Guarda la matriz de confusión anotada (TP/TN/FP/FN) como PNG."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -44,19 +39,12 @@ def figura_matriz_confusion(resultado: dict, ruta_png: Path, titulo: str | None 
 
 
 def _nombres_legibles(nombres_encoding: list[str]) -> list[str]:
-    """Quita el prefijo `estacion__`/`remainder__` que deja ColumnTransformer."""
     return [n.split("__", 1)[-1] if "__" in n else n for n in nombres_encoding]
 
 
 def explicar_shap(
     modelo: Any, X, dir_salida: Path, prefijo: str, n_muestra: int = 500, idx_instancia: int = 0,
 ) -> dict[str, str]:
-    """Genera summary_plot (global) y force_plot (local) con SHAP; devuelve rutas de los PNG.
-
-    `modelo` es un Pipeline (`prep` + `clf`, ver core/models.py): TreeExplainer necesita
-    el clasificador crudo, así que se explica sobre la matriz ya codificada por `prep`
-    (incl. el one-hot de `estacion`), no sobre las columnas de entrada originales.
-    """
     import shap
     import matplotlib
 
@@ -111,7 +99,6 @@ def explicar_shap(
 
 
 def graficar(paquete: dict, ruta_png: Path | None = None):
-    """Historia + ajuste sobre test + pronóstico futuro (con IC si el modelo lo da)."""
     import matplotlib
 
     matplotlib.use("Agg")

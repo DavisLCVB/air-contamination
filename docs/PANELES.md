@@ -80,12 +80,14 @@ relacionados.
 **Módulo:** `src/application/panel_predictivo.py`
 
 Clasifica cada hora como *alta contaminación* cuando `PM2.5 > 50 µg/m³` (umbral
-ECA), usando el resto de contaminantes (`pm_10, so2, no2, o3, co`) más `hora`,
-`mes` y `estacion` como variables. `estacion` se codifica con one-hot dentro
-del propio Pipeline del modelo (`core/models.py::_preprocesador`). `pm_25` se
-excluye de las features para evitar fuga de la variable objetivo, y el modelo
-se entrena solo con PM2.5 **medido** (no imputado). La clase "alta" es
-minoritaria (~7.9% de las horas), de ahí el manejo explícito del desbalance
+ECA), usando el resto de contaminantes (`pm_10, so2, no2, o3, co`), `hora`,
+`mes`, `estacion` y la media móvil de las 3h **anteriores** de cada
+contaminante (rezago, por estación, ver `core/models.py::_agregar_rezago`)
+como variables. `estacion` se codifica con one-hot dentro del propio Pipeline
+del modelo (`core/models.py::_preprocesador`). `pm_25` se excluye de las
+features para evitar fuga de la variable objetivo, y el modelo se entrena
+solo con PM2.5 **medido** (no imputado). La clase "alta" es minoritaria
+(~7.9% de las horas), de ahí el manejo explícito del desbalance
 (SMOTE / `class_weight`).
 
 ### Comparación de modelos (tabla)
@@ -121,7 +123,10 @@ valor base, hasta llegar a la probabilidad final del modelo.
   positivos.
 - **8 campos** (`pm_10, so2, no2, o3, co, hora, mes` como numéricos y
   `estacion` como desplegable): lectura de los otros contaminantes, la hora,
-  el mes y la estación de esa hora.
+  el mes y la estación de esa hora. El formulario NO pide el rezago (no hay
+  historia real de esa estación disponible en un input manual): internamente
+  `predecir_desde_entrada` asume "sin tendencia" y usa el mismo valor
+  ingresado como su propio rezago.
 - **Botón "Predecir":** corre el modelo ganador sobre los valores ingresados y
   muestra la etiqueta (alta/baja contaminación), la probabilidad y el umbral
   usado. El resultado queda en `st.session_state["ultima_prediccion"]` para que

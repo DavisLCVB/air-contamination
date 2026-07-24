@@ -1,14 +1,3 @@
-"""Verificación (smoke test) del Rol B — Modelado y XAI.
-
-Ejecuta comprobaciones rápidas sobre una MUESTRA de los datos (segundos, no minutos)
-y reporta PASS / FAIL / WARN por cada punto. No reemplaza a `models.py` (que entrena
-con todo); sirve para responder "¿está todo bien instalado y conectado?".
-
-Uso:
-    uv run python verificar_rol_b.py
-
-Código de salida 0 si no hay FAIL; 1 si hay al menos un FAIL.
-"""
 
 from __future__ import annotations
 

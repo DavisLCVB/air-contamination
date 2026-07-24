@@ -1,11 +1,3 @@
-"""
-panel_recomendaciones.py — Panel 5 (Recomendaciones de intervención) del dashboard.
-
-Sintetiza el clustering del Panel 1 (severidad) y la lógica de series del Panel 3
-(trayectoria) en una lista de estaciones prioritarias para intervención. La
-combinación vive en `core.recomendaciones`; este módulo solo dibuja la UI (demo
-aislada: uv run streamlit run src/application/panel_recomendaciones.py).
-"""
 from __future__ import annotations
 
 import sys
@@ -36,7 +28,6 @@ def _tabla_prioridad() -> pd.DataFrame:
 
 
 def _texto_tendencia(v: float) -> str:
-    """Etiqueta legible de la pendiente, marcando la zona muerta como 'estable'."""
     if pd.isna(v):
         return "—"
     banda = abs(UMBRAL_MEJORA)
@@ -48,7 +39,6 @@ def _texto_tendencia(v: float) -> str:
 
 
 def render(df=None):
-    """Dibuja el Panel 5: cruza severidad (Panel 1) y trayectoria (Panel 3) en una recomendación."""
     st.subheader(":material/recommend: Panel 5 · Recomendaciones de intervención")
     st.caption(
         "Cruza el cluster de alta contaminación (Panel 1) con la tendencia mensual de "

@@ -1,4 +1,3 @@
-"""Clasificación de horas de alta contaminación por PM2.5 (RF / XGBoost + SHAP)."""
 from __future__ import annotations
 
 import json
@@ -22,7 +21,10 @@ RUTA_XGB = DIR_MODELOS / "xgb.pkl"
 
 OBJETIVO = "pm_25"
 ECA_PM25 = 50.0  # µg/m³ -- umbral de "hora de alta contaminación"
-FEATURES_NUM = [c for c in CONTAMINANTES if c != OBJETIVO] + ["hora", "mes"]
+POLUTANTES_REZAGO = [c for c in CONTAMINANTES if c != OBJETIVO]
+VENTANA_REZAGO_H = 3
+FEATURES_REZAGO = [f"{p}_roll{VENTANA_REZAGO_H}h" for p in POLUTANTES_REZAGO]
+FEATURES_NUM = POLUTANTES_REZAGO + ["hora", "mes"] + FEATURES_REZAGO
 FEATURES_CAT = ["estacion"]
 FEATURES = FEATURES_NUM + FEATURES_CAT
 TEST_SIZE = 0.30
@@ -34,20 +36,32 @@ np.random.seed(SEED)
 
 # --- Dataset de modelado ------------------------------------------------------
 
+def _agregar_rezago(df: pd.DataFrame, ventana: int = VENTANA_REZAGO_H) -> pd.DataFrame:
+    df = df.sort_values(["estacion", "fecha_hora"]).copy()
+    g = df.groupby("estacion", sort=False)
+    for p in POLUTANTES_REZAGO:
+        df[f"{p}_roll{ventana}h"] = g[p].transform(
+            lambda s: s.shift(1).rolling(ventana, min_periods=1).mean()
+        )
+    return df
+
+
 def construir_dataset_modelado(
     df: pd.DataFrame, umbral: float = ECA_PM25, solo_real: bool = SOLO_REAL,
 ) -> tuple[pd.DataFrame, pd.Series]:
-    """Deriva (X, y) del DataFrame limpio; y = (pm_25 > umbral)."""
-    base = df
+    base = _agregar_rezago(df)
     if solo_real:
         col_imputado = f"{OBJETIVO}_imputado"
-        base = df[~df[col_imputado]].copy()
+        base = base[~base[col_imputado]].copy()
 
     y = (base[OBJETIVO] > umbral).astype(int)
     X = base[FEATURES].copy()
 
     assert OBJETIVO not in X.columns, "Fuga: el objetivo está entre las features."
     assert not any(c.startswith(OBJETIVO) for c in X.columns), "Fuga: columna derivada del objetivo."
+
+    filas_validas = X[FEATURES_REZAGO].notna().all(axis=1)
+    X, y = X[filas_validas], y[filas_validas]
 
     y.name = "alta_contaminacion"
     return X, y
@@ -56,7 +70,6 @@ def construir_dataset_modelado(
 def dividir(
     X: pd.DataFrame, y: pd.Series, test_size: float = TEST_SIZE, grupos: pd.Series | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Split train/test; con `grupos` usa GroupShuffleSplit (evita fuga por autocorrelación horaria)."""
     if grupos is not None:
         from sklearn.model_selection import GroupShuffleSplit
 
@@ -72,12 +85,6 @@ def dividir(
 # --- Preprocesamiento (encoding) ----------------------------------------------
 
 def _preprocesador() -> Any:
-    """OneHot para `estacion`; el resto de features (numéricas) pasan sin cambios.
-
-    Se antepone a cada clasificador dentro de un Pipeline para que el contrato de
-    entrada (`FEATURES`, incl. `estacion` como texto) sea el mismo en train y en
-    `predecir_desde_entrada` -- el encoding vive con el modelo, no en el caller.
-    """
     from sklearn.compose import ColumnTransformer
     from sklearn.preprocessing import OneHotEncoder
 
@@ -93,7 +100,6 @@ def entrenar_rf(
     X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
     balanceo: str = "class_weight", max_depth: int = 20, min_samples_leaf: int = 20,
 ) -> Any:
-    """Pipeline (encoding + Random Forest); `balanceo='class_weight'` usa class_weight='balanced'."""
     from sklearn.ensemble import RandomForestClassifier
     from imblearn.pipeline import Pipeline as ImbPipeline
 
@@ -111,7 +117,6 @@ def entrenar_xgb(
     X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
     learning_rate: float = 0.1, max_depth: int = 6, balanceo: str = "scale_pos_weight",
 ) -> Any:
-    """Pipeline (encoding + XGBoost); `balanceo='scale_pos_weight'` fija scale_pos_weight = n_neg/n_pos."""
     from xgboost import XGBClassifier
     from imblearn.pipeline import Pipeline as ImbPipeline
 
@@ -136,8 +141,6 @@ def entrenar_rf_smote(
     X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
     max_depth: int = 20, min_samples_leaf: int = 20,
 ) -> Any:
-    """Pipeline (encoding + SMOTE + Random Forest); SMOTE corre sobre las features
-    ya codificadas (no se le puede pasar `estacion` como texto crudo)."""
     from sklearn.ensemble import RandomForestClassifier
     from imblearn.over_sampling import SMOTE
     from imblearn.pipeline import Pipeline as ImbPipeline
@@ -158,7 +161,6 @@ def entrenar_rf_smote(
 # --- Predicción y evaluación -----------------------------------------------------
 
 def predecir(modelo: Any, X: pd.DataFrame, umbral: float = UMBRAL_DECISION) -> tuple[np.ndarray, np.ndarray]:
-    """(y_pred, y_proba) aplicando `umbral` sobre predict_proba."""
     y_proba = modelo.predict_proba(X)[:, 1]
     y_pred = (y_proba >= umbral).astype(int)
     return y_pred, y_proba
@@ -168,7 +170,6 @@ def evaluar(
     modelo: Any, X_test: pd.DataFrame, y_test: pd.Series,
     umbral: float = UMBRAL_DECISION, nombre: str = "",
 ) -> dict[str, Any]:
-    """Matriz de confusión + métricas por clase y globales."""
     from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, roc_auc_score, accuracy_score
 
     y_pred, y_proba = predecir(modelo, X_test, umbral)
@@ -188,7 +189,6 @@ def evaluar(
 
 
 def comparar_modelos(resultados: dict[str, dict]) -> pd.DataFrame:
-    """Tabla comparativa por modelo, ordenada por F1 de la clase alta."""
     filas = []
     for clave, r in resultados.items():
         filas.append({
@@ -219,7 +219,6 @@ def cargar_modelo(ruta: Path) -> Any:
 
 
 def cargar_artefactos() -> dict[str, Any] | None:
-    """{rf, xgb, metrics} desde disco si existen; None si falta alguno."""
     if RUTA_RF.exists() and RUTA_XGB.exists() and RUTA_METRICS.exists():
         return {
             "rf": cargar_modelo(RUTA_RF),
@@ -232,7 +231,11 @@ def cargar_artefactos() -> dict[str, Any] | None:
 def predecir_desde_entrada(
     modelo: Any, valores: dict[str, float], umbral: float = UMBRAL_DECISION
 ) -> dict[str, Any]:
-    """Predice a partir de un dict {feature: valor} (contrato del CRUD y Panel 2)."""
+    valores = dict(valores)
+    for p, feat_rezago in zip(POLUTANTES_REZAGO, FEATURES_REZAGO):
+        if valores.get(feat_rezago) is None and p in valores:
+            valores[feat_rezago] = valores[p]
+
     faltan = [f for f in FEATURES if f not in valores]
     if faltan:
         raise ValueError(f"Faltan features en la entrada: {faltan}")
@@ -254,7 +257,6 @@ def entrenar_y_evaluar_todo(
     df: pd.DataFrame, umbral_eca: float = ECA_PM25,
     umbral_decision: float = UMBRAL_DECISION, test_size: float = TEST_SIZE,
 ) -> dict[str, Any]:
-    """Entrena RF (class_weight), XGBoost (scale_pos_weight) y RF+SMOTE; evalúa los tres."""
     X, y = construir_dataset_modelado(df, umbral=umbral_eca)
     grupos = df.loc[X.index, "fecha_hora"].dt.normalize()  # split por día, no por fila
     X_train, X_test, y_train, y_test = dividir(X, y, test_size=test_size, grupos=grupos)
@@ -282,7 +284,6 @@ def entrenar_y_evaluar_todo(
 
 
 def resolver_modelos(df: pd.DataFrame) -> dict[str, Any]:
-    """Carga artefactos de `models/` o, si faltan, entrena en caliente (cold start)."""
     artefactos = cargar_artefactos()
     if artefactos is not None:
         return {"origen": "disco", **artefactos}
@@ -296,7 +297,6 @@ def resolver_modelos(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def construir_metrics_json(salida: dict[str, Any]) -> dict[str, Any]:
-    """Dict serializable persistido en models/metrics.json."""
     return {
         "generado_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seed": SEED,

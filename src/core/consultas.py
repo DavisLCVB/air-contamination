@@ -1,4 +1,3 @@
-"""CRUD de consultas de predicción (SQLite) + resolución del predictor (Panel 4)."""
 from __future__ import annotations
 
 import os
@@ -12,7 +11,6 @@ from core import models
 
 
 def _raiz_proyecto() -> Path:
-    """Raíz del repo (busca `models/` o `data/` subiendo desde este archivo)."""
     aqui = Path(__file__).resolve().parent
     for candidata in (aqui, *aqui.parents):
         if (candidata / "models").exists() or (candidata / "data").exists():
@@ -65,7 +63,6 @@ def conectar() -> sqlite3.Connection:
 
 
 def inicializar_bd() -> None:
-    """Crea la tabla de consultas si no existe (idempotente) y migra columnas nuevas."""
     ddl = f"""
         CREATE TABLE IF NOT EXISTS {NOMBRE_TABLA} (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +94,6 @@ def inicializar_bd() -> None:
 
 
 def _migrar_columnas_nuevas(conexion: sqlite3.Connection) -> None:
-    """Agrega hora/mes/estacion a bases de datos creadas antes de este cambio."""
     existentes = {fila["name"] for fila in conexion.execute(f"PRAGMA table_info({NOMBRE_TABLA})")}
     columnas_nuevas = {"hora": "INTEGER", "mes": "INTEGER", "estacion": "TEXT"}
     for columna, tipo in columnas_nuevas.items():
@@ -154,20 +150,10 @@ def eliminar_consulta(id_consulta: int) -> None:
 # --- Resolución del predictor (3 niveles, con respaldo) ----------------------
 
 def _predecir_con_modelo(modelo, entrada: dict[str, float]) -> dict[str, Any]:
-    """Predice con un estimador sklearn cargado directamente (opción 2)."""
-    X = pd.DataFrame([[entrada[f] for f in FEATURES]], columns=FEATURES)
-    proba = float(modelo.predict_proba(X)[0, 1])
-    clase = int(proba >= UMBRAL_DECISION)
-    return {
-        "clase": clase,
-        "etiqueta": "Alta contaminación" if clase == 1 else "Baja contaminación",
-        "probabilidad": round(proba, 4),
-        "umbral": UMBRAL_DECISION,
-    }
+    return models.predecir_desde_entrada(modelo, entrada, umbral=UMBRAL_DECISION)
 
 
 def predecir_respaldo(entrada: dict[str, float]) -> dict[str, Any]:
-    """Predictor heurístico de respaldo (solo demo, no es el modelo entrenado)."""
     import math
 
     pm_10 = float(entrada.get("pm_10", 0.0))
@@ -184,7 +170,6 @@ def predecir_respaldo(entrada: dict[str, float]) -> dict[str, Any]:
 
 
 def resolver_predictor() -> dict[str, Any]:
-    """Predictor en 3 niveles: modelo real del Panel 2, joblib directo, o respaldo."""
     try:
         for nombre in NOMBRES_MODELO:
             ruta = Path(models.DIR_MODELOS) / nombre

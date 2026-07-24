@@ -1,8 +1,3 @@
-"""Panel 2 del dashboard — Predictivo.
-
-Expone `render(df)`. La lógica de modelado, carga de artefactos y predicción vive
-en `core.models`; este módulo solo dibuja la UI.
-"""
 from __future__ import annotations
 
 import sys
@@ -27,7 +22,6 @@ def _obtener_todo(_df: pd.DataFrame):
 
 
 def render(df: pd.DataFrame | None = None) -> None:
-    """Renderiza el Panel 2 (predictivo) dentro de la app de Streamlit."""
     if df is None:
         df = cargar_y_limpiar(str(M.RUTA_DATOS))
 
@@ -43,9 +37,11 @@ def render(df: pd.DataFrame | None = None) -> None:
         st.markdown(
             f"""
 Clasificar cada hora como *alta contaminación* cuando
-`PM2.5 > {metrics['umbral_eca_pm25']:.0f} µg/m³`, usando los otros contaminantes
-({', '.join(metrics['features'])}) como variables. Se excluye `pm_25` para evitar
-fuga de la variable objetivo, y se entrena solo con PM2.5 **medido** (no imputado).
+`PM2.5 > {metrics['umbral_eca_pm25']:.0f} µg/m³`, usando como variables: los
+otros contaminantes (`pm_10, so2, no2, o3, co`), `hora`, `mes`, `estacion` y la
+media móvil de {M.VENTANA_REZAGO_H}h **anteriores** de cada contaminante (rezago,
+captura la acumulación previa a un pico). Se excluye `pm_25` para evitar fuga
+de la variable objetivo, y se entrena solo con PM2.5 **medido** (no imputado).
 La clase 'alta' es minoritaria (~{metrics['balance_positivos_pct']:.1f}%), de ahí el
 manejo explícito del desbalance.
             """
@@ -144,12 +140,17 @@ manejo explícito del desbalance.
         st.caption(
             "Ingresa una lectura de los otros contaminantes, la hora, el mes y la "
             "estación, y el modelo estima si esa combinación corresponde a una hora "
-            "de alta contaminación de PM2.5."
+            "de alta contaminación de PM2.5. Nota: como esta predicción puntual no "
+            "tiene acceso a las horas previas reales de la estación, el rezago "
+            "(media móvil) se asume igual al valor ingresado, es decir, 'sin tendencia'."
         )
         with st.form("form_prediccion_interactiva", border=False):
-            cols = st.columns(len(M.FEATURES))
+            # El formulario pide un instante puntual (contrato de C.FEATURES, 8
+            # campos); M.FEATURES tiene además el rezago (media móvil 3h), que
+            # predecir_desde_entrada rellena solo internamente ("sin tendencia").
+            cols = st.columns(len(C.FEATURES))
             valores: dict[str, float | str] = {}
-            for c, feat in zip(cols, M.FEATURES):
+            for c, feat in zip(cols, C.FEATURES):
                 cfg = C.CONFIG_FEATURES[feat]
                 with c:
                     if cfg["tipo"] == "categoria":

@@ -1,10 +1,3 @@
-"""
-panel_eda.py — Panel 1 (EDA + Clustering) del dashboard.
-
-Expone `render(df=None)`: dibuja el perfil de contaminación por estación y el
-clustering K-means. Si no se le pasa `df`, lo carga por su cuenta (demo aislada:
-uv run streamlit run src/application/panel_eda.py).
-"""
 from __future__ import annotations
 
 import sys
@@ -44,7 +37,6 @@ def _clusters(perfil: pd.DataFrame, k: int):
 
 
 def render(df=None):
-    """Dibuja el Panel 1: EDA descriptivo + clustering K-means de estaciones."""
     if df is None:
         df = _cargar_df()
 

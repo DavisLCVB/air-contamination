@@ -1,4 +1,3 @@
-"""Perfil de contaminación por estación y clustering K-means (Panel 1 / Panel 5)."""
 from __future__ import annotations
 
 import pandas as pd
@@ -10,21 +9,15 @@ ECA_PM25_ANUAL = 25  # µg/m³ -- D.S. N° 003-2017-MINAM, promedio de largo pla
 
 
 def contaminantes_presentes(df: pd.DataFrame) -> list[str]:
-    """Contaminantes de la lista oficial que están en `df`."""
     return [c for c in CONTAMINANTES if c in df.columns]
 
 
 def perfil_por_estacion(df: pd.DataFrame) -> pd.DataFrame:
-    """Promedio de cada contaminante por estación."""
     cols = contaminantes_presentes(df)
     return df.groupby("estacion")[cols].mean()
 
 
 def clusters(perfil: pd.DataFrame, k: int):
-    """K-means (estandarizado) + PCA 2D sobre el perfil de estaciones.
-
-    Devuelve (labels, coords2d, inercia, silueta).
-    """
     from sklearn.cluster import KMeans
     from sklearn.decomposition import PCA
     from sklearn.preprocessing import StandardScaler
