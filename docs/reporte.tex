@@ -236,9 +236,16 @@ resultado.
 
 La variable objetivo (\texttt{PM2.5 > 50~\textmu g/m\textsuperscript{3}}, ECA de 24h)
 está fuertemente desbalanceada: solo el 7.9\% de las horas medidas son ``alta
-contaminación''. Se entrenaron y evaluaron tres estrategias sobre el mismo hold-out
-(30\% de test, separado por día calendario para no filtrar horas del mismo día entre
-train y test):
+contaminación''. Las features son los 5 contaminantes restantes
+(\texttt{pm\_10, so2, no2, o3, co}), \texttt{hora}, \texttt{mes}, \texttt{estacion}
+(codificada con one-hot dentro del propio \texttt{Pipeline} del modelo,
+\texttt{src/\allowbreak models.py}, función \texttt{\_preprocesador}) y la media móvil
+de las 3h \textbf{anteriores} de cada contaminante por estación (rezago -- captura la
+acumulación previa a un pico, no solo el instante puntual; función
+\texttt{\_agregar\_rezago}, líneas 39--46). Se entrenaron y evaluaron tres estrategias
+sobre el mismo hold-out (30\% de test, separado por día calendario para no filtrar
+horas del mismo día entre train y test; función \texttt{dividir}, líneas 70--82,
+aplicada en las líneas 261--262):
 
 \begin{table}[h!]
 \centering
@@ -248,9 +255,9 @@ train y test):
 \toprule
 \textbf{Modelo} & \textbf{Accuracy} & \textbf{ROC-AUC} & \textbf{F1 (alta)} & \textbf{Recall (alta)} & \textbf{Precision (alta)} \\
 \midrule
-\textbf{RF + class\_weight} (ganador) & 0.828 & \textbf{0.898} & 0.419 & 0.778 & 0.287 \\
-XGBoost + scale\_pos\_weight & 0.808 & 0.896 & 0.402 & 0.808 & 0.267 \\
-RF + SMOTE (referencia, no desplegado) & \textbf{0.835} & 0.895 & \textbf{0.425} & 0.763 & 0.294 \\
+RF + class\_weight & 0.875 & 0.938 & 0.517 & 0.840 & 0.374 \\
+\textbf{XGBoost + scale\_pos\_weight} (ganador) & 0.880 & \textbf{0.943} & 0.531 & 0.850 & 0.386 \\
+RF + SMOTE (referencia, no desplegado) & \textbf{0.926} & 0.940 & \textbf{0.605} & 0.706 & \textbf{0.529} \\
 \bottomrule
 \end{tabular}%
 }
@@ -262,16 +269,16 @@ minoritaria}, no por accuracy: en un problema con 92.1\% de horas ``baja'' un
 clasificador trivial que siempre prediga ``baja'' ya obtendría accuracy alto sin ser
 útil. El costo de no avisar una hora contaminada (falso negativo) es mayor que el de
 una falsa alarma (falso positivo), por lo que el recall de la clase alta pesa más que
-la precisión global. \texttt{RF + SMOTE} obtiene el F1 más alto de los tres (0.425 vs.\
-0.419), pero el proyecto lo excluye deliberadamente de la comparación de ``mejor
+la precisión global. \texttt{RF + SMOTE} obtiene el F1 más alto de los tres (0.605 vs.\
+0.531), pero el proyecto lo excluye deliberadamente de la comparación de ``mejor
 modelo desplegable'' (\texttt{src/\allowbreak models.py}, función \texttt{entrenar\_y\_evaluar\_todo},
-línea 564, que descarta expresamente el candidato \texttt{rf\_smote} antes de fijar el
-mejor modelo):
+líneas 274--276, que descartan expresamente el candidato \texttt{rf\_smote} antes de
+fijar el mejor modelo):
 se entrena únicamente como referencia académica del efecto del sobremuestreo sobre el
 recall, no se serializa como artefacto de despliegue, y su mejora de F1 sobre
-\texttt{rf\_classweight} (+0.006) no compensa la complejidad añadida de mantener en
+\texttt{xgb\_scaleposw} (+0.074) no compensa la complejidad añadida de mantener en
 producción un pipeline de SMOTE. El modelo ganador y efectivamente servido por el
-Panel~2 es, por lo tanto, \textbf{\texttt{rf\_classweight}}, coherente entre
+Panel~2 es, por lo tanto, \textbf{\texttt{xgb\_scaleposw}}, coherente entre
 \texttt{models.py}, \texttt{metrics.json} y \texttt{panel\_predictivo.py}.
 
 La interpretabilidad se resuelve con SHAP (\texttt{TreeExplainer}): el
@@ -284,20 +291,20 @@ poder responder.
 \begin{figure}[h!]
 \centering
 \includegraphics[width=0.75\textwidth]{../models/confusion_matrix.png}
-\caption{Matriz de confusión del modelo ganador (\texttt{rf\_classweight}).}
+\caption{Matriz de confusión del modelo ganador (\texttt{xgb\_scaleposw}).}
 \label{fig:confmat}
 \end{figure}
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.75\textwidth]{../models/rf_classweight_shap_summary.png}
+\includegraphics[width=0.75\textwidth]{../models/xgb_scaleposw_shap_summary.png}
 \caption{SHAP summary plot (importancia global de features) del modelo ganador.}
 \label{fig:shap-summary}
 \end{figure}
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.85\textwidth]{../models/rf_classweight_shap_force.png}
+\includegraphics[width=0.85\textwidth]{../models/xgb_scaleposw_shap_force.png}
 \caption{SHAP force plot para un caso puntual real: estación San Juan de Lurigancho, 2020-08-28 21:00.}
 \label{fig:shap-force}
 \end{figure}
@@ -306,15 +313,20 @@ El caso de la Figura~\ref{fig:shap-force} es una hora real del set de test (esta
 San Juan de Lurigancho, 2020-08-28 21:00, PM2.5 \textbf{medido} = 33.0~\textmu
 g/m\textsuperscript{3}, por debajo del ECA de 24h). Con entrada
 \texttt{pm\_10=82.2}, \texttt{so2=12.3}, \texttt{no2=40.3}, \texttt{o3=2.4},
-\texttt{co=717.6}, el modelo predice una probabilidad de 0.284 para ``alta
-contaminación'' -- por debajo del umbral de 0.5, así que clasifica correctamente esta
-hora como \emph{baja}, coincidiendo con la etiqueta real. El mayor empuje hacia
-``baja'' (azul) viene de \texttt{pm\_10} y, en menor medida, de \texttt{co}: aunque el
-PM10 está elevado (82.2), su efecto SHAP en este caso puntual empuja hacia la clase
-baja, no hacia la alta -- evidencia de que el modelo no aplica un umbral univariado
-simple sobre un solo contaminante, sino que pondera la combinación completa de los 5.
-Lo único que empuja hacia ``alta'' (rojo) es el O\textsubscript{3} muy bajo (2.4) y el
-NO\textsubscript{2} moderado (40.3), pero no alcanza para revertir el resultado.
+\texttt{co=717.6}, \texttt{hora=21}, \texttt{mes=8}, \texttt{estacion=SAN JUAN DE
+LURIGANCHO} y rezagos de 3h (\texttt{no2\_roll3h=41.6}, \texttt{o3\_roll3h=2.8} entre
+otros), el modelo predice una probabilidad de 0.362 para ``alta contaminación'' --
+por debajo del umbral de 0.5, así que clasifica correctamente esta hora como
+\emph{baja}, coincidiendo con la etiqueta real. El mayor empuje hacia ``baja''
+(azul) viene de \texttt{hora=21} ($-1.23$), seguido de \texttt{pm\_10=82.2} ($-0.27$) y
+del \texttt{no2\_roll3h=41.6} ($-0.21$): aunque el PM10 está elevado y es hora punta
+nocturna, tanto el efecto SHAP puntual de la hora como el del PM10 empujan hacia la
+clase baja, no hacia la alta -- evidencia de que el modelo no aplica un umbral
+univariado simple sobre un solo contaminante, sino que pondera la combinación completa
+de contaminantes, momento del día, estación y tendencia reciente. Lo que empuja hacia
+``alta'' (rojo) es \texttt{mes=8} (invierno limeño, $+0.64$), el
+\texttt{o3\_roll3h=2.8} muy bajo ($+0.21$) y el \texttt{so2=12.3} ($+0.11$), pero no
+alcanza para revertir el resultado.
 
 \subsection{Pronóstico: naive estacional vs. Holt-Winters vs. SARIMA}
 \label{sec:pronostico}
@@ -374,7 +386,7 @@ NO\textsubscript{2}, O\textsubscript{3}, CO). Tras la limpieza, la ventana anali
 No es un hueco puntual: es la propia serie histórica siendo demasiado incompleta para
 imputar con confianza. Por eso el proyecto define \texttt{FECHA\_CORTE = 2014-10-01} y
 descarta todo lo anterior en vez de rellenarlo (\texttt{src/\allowbreak preprocessing.py}, líneas
-37--43).
+39--45).
 
 \item \textbf{Apagón de sensor de más de un año en SAN MARTIN DE PORRES.} Esa estación
 concentra dos huecos largos: de 2018-08-06 a 2019-05-16 (\textasciitilde 9.4 meses) y,
@@ -427,7 +439,7 @@ por qué SMOTE no se despliega pese a ganar por F1 crudo.
 \subsection*{(d) Impacto: qué decisión real habilita}
 
 Con estas resoluciones, el proyecto entrega tres piezas accionables: (1) una
-clasificación de riesgo por hora con F1 = 0.419 y explicación SHAP, útil como insumo de
+clasificación de riesgo por hora con F1 = 0.531 y explicación SHAP, útil como insumo de
 un sistema de alerta temprana explicable, no solo una etiqueta binaria; (2) un
 pronóstico mensual con 8.18\% de error que proyecta 25--31~\textmu
 g/m\textsuperscript{3} para el próximo invierno limeño --al borde o por encima del ECA

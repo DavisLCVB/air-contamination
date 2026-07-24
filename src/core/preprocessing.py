@@ -1,4 +1,3 @@
-"""Limpieza e imputación de contaminantes del aire (Lima Metropolitana)."""
 from __future__ import annotations
 
 import pandas as pd
@@ -21,7 +20,6 @@ np.random.seed(SEED)
 # --- Carga ------------------------------------------------------------------
 
 def cargar_datos(ruta_csv: str) -> pd.DataFrame:
-    """Carga el CSV crudo de SENAMHI y normaliza columnas/tipos."""
     df = pd.read_csv(ruta_csv)
     df.columns = (
         df.columns.str.strip()
@@ -44,7 +42,6 @@ def limpiar_e_imputar(
     limite_interpolacion: int = LIMITE_INTERPOLACION_HORAS,
     contaminantes: list[str] = CONTAMINANTES,
 ) -> pd.DataFrame:
-    """Filtra, deduplica, rellena la grilla horaria e imputa en 3 pasos."""
     df_ventana = df[df["fecha_hora"] >= fecha_corte].copy()
     df_dedup = df_ventana.groupby(
         ["estacion", "codigo_estacion", "fecha_hora"], as_index=False
@@ -95,18 +92,15 @@ def limpiar_e_imputar(
 
 
 def cargar_y_limpiar(ruta_csv: str, **kwargs) -> pd.DataFrame:
-    """`cargar_datos` + `limpiar_e_imputar` en una sola llamada."""
     df = cargar_datos(ruta_csv)
     return limpiar_e_imputar(df, **kwargs)
 
 
 def guardar_parquet(df: pd.DataFrame, ruta_salida: str) -> None:
-    """Persiste el DataFrame limpio en parquet (preserva dtypes)."""
     df.to_parquet(ruta_salida, index=False)
 
 
 def reporte_trazabilidad(df: pd.DataFrame, columna: str = "pm_25") -> pd.Series:
-    """% de filas imputadas por estación para `columna`."""
     col_imputado = f"{columna}_imputado"
     return df.groupby("estacion")[col_imputado].mean() * 100
 

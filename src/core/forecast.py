@@ -1,4 +1,3 @@
-"""Serie temporal y pronóstico de PM2.5 (naive estacional, Holt-Winters, SARIMA)."""
 from __future__ import annotations
 
 import json
@@ -49,7 +48,6 @@ def construir_serie(
     objetivo: str = OBJETIVO, recortar_imputados: bool = True,
     umbral_imputado: float = UMBRAL_IMPUTADO,
 ) -> pd.Series:
-    """Serie regular del `objetivo` a frecuencia `freq`; recorta cola muy imputada."""
     d = df.copy()
     d[COL_FECHA] = pd.to_datetime(d[COL_FECHA])
     if estacion not in (None, "TODAS"):
@@ -74,7 +72,6 @@ def construir_serie(
 
 
 def dividir_serie(serie: pd.Series, periodos_test: int = PERIODOS_TEST):
-    """Hold-out cronológico: los últimos `periodos_test` puntos como test."""
     n = len(serie)
     n_test = min(periodos_test, max(2, n // 5))
     if n - n_test < 4:
@@ -107,14 +104,12 @@ def metricas(y_true, y_pred) -> dict:
 # --- Modelos de pronóstico -------------------------------------------------------
 
 def pred_naive_estacional(train: pd.Series, m: int, h: int) -> np.ndarray:
-    """Baseline: cada período futuro = mismo período del último ciclo observado."""
     ultimo_ciclo = train.values[-m:] if len(train) >= m else train.values
     reps = int(np.ceil(h / len(ultimo_ciclo)))
     return np.tile(ultimo_ciclo, reps)[:h]
 
 
 def ajustar_hw(train: pd.Series, m: int):
-    """Holt-Winters aditivo; cae a no-estacional si falta historia."""
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
     estacional = ESTACIONAL_HW if len(train) >= 2 * m else None
@@ -128,7 +123,6 @@ def ajustar_hw(train: pd.Series, m: int):
 
 
 def ajustar_sarima(train: pd.Series, m: int, orden=(1, 1, 1)):
-    """SARIMA (1,1,1)(1,0,1)_m; cae a ARIMA no estacional si la serie es corta."""
     from statsmodels.tsa.statespace.sarimax import SARIMAX
 
     seas = (1, 0, 1, m) if len(train) >= 2 * m else (0, 0, 0, 0)
@@ -142,7 +136,6 @@ def ajustar_sarima(train: pd.Series, m: int, orden=(1, 1, 1)):
 
 
 def _forecast(nombre: str, ajuste, h: int, m: int, train: pd.Series):
-    """(yhat, lo, hi); lo/hi = None si el modelo no da intervalo."""
     if nombre == NAIVE:
         return pred_naive_estacional(train, m, h), None, None
     if nombre == HW:
@@ -157,7 +150,6 @@ def _forecast(nombre: str, ajuste, h: int, m: int, train: pd.Series):
 # --- Comparación de modelos ------------------------------------------------------
 
 def comparar_modelos(serie: pd.Series, freq: str = FREQ_DEFAULT, periodos_test: int = PERIODOS_TEST):
-    """Ajusta los 3 modelos, pronostica el test y calcula MAPE/RMSE/MAE."""
     m = estacionalidad(freq)
     train, test = dividir_serie(serie, periodos_test)
     h = len(test)
@@ -191,7 +183,6 @@ def comparar_modelos(serie: pd.Series, freq: str = FREQ_DEFAULT, periodos_test: 
 
 def pronostico_final(serie: pd.Series, nombre_modelo: str, freq: str = FREQ_DEFAULT,
                      horizonte: int = HORIZONTE) -> pd.DataFrame:
-    """Reajusta el modelo elegido sobre la serie completa y pronostica `horizonte` períodos."""
     m = estacionalidad(freq)
     if nombre_modelo == HW:
         ajuste = ajustar_hw(serie, m)
@@ -210,7 +201,6 @@ def pronostico_final(serie: pd.Series, nombre_modelo: str, freq: str = FREQ_DEFA
 
 def serie_y_pronostico(df, estacion=None, freq=FREQ_DEFAULT, periodos_test=PERIODOS_TEST,
                        horizonte=HORIZONTE, recortar_imputados=True):
-    """Todo-en-uno: serie -> comparar -> mejor -> futuro."""
     serie = construir_serie(df, estacion=estacion, freq=freq, recortar_imputados=recortar_imputados)
     tabla, resultados, mejor, (train, test) = comparar_modelos(serie, freq, periodos_test)
     futuro = pronostico_final(serie, mejor, freq, horizonte)
@@ -223,7 +213,6 @@ def serie_y_pronostico(df, estacion=None, freq=FREQ_DEFAULT, periodos_test=PERIO
 
 
 def guardar_metrics_json(paquete: dict, ruta: Path = RUTA_METRICS) -> Path:
-    """Persiste métricas auditables (fuente de verdad del Panel 3 y el Reporte)."""
     ruta.parent.mkdir(parents=True, exist_ok=True)
     tabla, cfg = paquete["tabla"], paquete["config"]
     doc = {
@@ -250,7 +239,6 @@ def guardar_metrics_json(paquete: dict, ruta: Path = RUTA_METRICS) -> Path:
 
 def entrenar_y_evaluar_todo(df=None, estacion=None, freq=FREQ_DEFAULT,
                             periodos_test=PERIODOS_TEST, horizonte=HORIZONTE, guardar=True):
-    """Corre todo y persiste métricas (JSON); orquestador equivalente al de models.py."""
     if df is None:
         df = cargar_y_limpiar(str(RUTA_DATOS))
     paquete = serie_y_pronostico(df, estacion, freq, periodos_test, horizonte)

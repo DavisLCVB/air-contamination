@@ -114,8 +114,10 @@ uv run streamlit run app.py
 ## Decisiones de modelado (Rol B) — resumen
 
 - **Etiqueta:** `y = (pm_25 > 50)` (constante `ECA_PM25 = 50`, cambiable en un solo lugar).
-- **Features:** los 5 contaminantes restantes (`pm_10, so2, no2, o3, co`). Se excluyen
-  `pm_25` y `pm_25_imputado` para evitar fuga de información.
+- **Features:** los 5 contaminantes restantes (`pm_10, so2, no2, o3, co`), `hora`,
+  `mes`, `estacion` (one-hot dentro de un `Pipeline`, ver `core/models.py::_preprocesador`)
+  y la media móvil de 3h **anteriores** de cada contaminante (rezago, por estación).
+  Se excluyen `pm_25` y `pm_25_imputado` para evitar fuga de información.
 - **Etiqueta real:** se entrena y evalúa solo sobre filas con PM2.5 **medido**
   (`pm_25_imputado == False`), para no medir la calidad de la imputación en vez de la
   predicción.

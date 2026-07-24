@@ -1,10 +1,3 @@
-"""
-panel_crud.py — Panel 4: CRUD de consultas de predicción de calidad del aire.
-
-Toda la persistencia (SQLite) y la resolución del predictor viven en
-`core.consultas`; este módulo solo dibuja la UI (demo aislada:
-streamlit run src/application/panel_crud.py).
-"""
 from __future__ import annotations
 
 import sys
@@ -32,7 +25,6 @@ def _cargar_predictor() -> dict:
 # ---------------------------------------------------------------------------
 
 def _seccion_registro(predictor: dict) -> None:
-    """Formulario de creación (Create): captura datos, predice y persiste."""
     st.subheader(":material/edit_note: Registrar nueva consulta")
     st.caption(
         "Completa los datos de contacto y las lecturas de contaminantes: el modelo "
@@ -57,16 +49,22 @@ def _seccion_registro(predictor: dict) -> None:
                                                   default=TIPOS_CONSULTA[0])
             mensaje = st.text_area("Mensaje / observación", height=80)
 
-        st.markdown("**Datos de entrada del modelo (contaminantes)**")
+        st.markdown("**Datos de entrada del modelo (contaminantes, hora, mes, estación)**")
         columnas = st.columns(len(FEATURES))
-        entrada: dict[str, float] = {}
+        entrada: dict[str, float | str] = {}
         for columna, feature in zip(columnas, FEATURES):
             cfg = CONFIG_FEATURES[feature]
             with columna:
-                entrada[feature] = st.number_input(
-                    cfg["etiqueta"], min_value=cfg["min"], max_value=cfg["max"],
-                    value=cfg["def"], step=1.0,
-                )
+                if cfg["tipo"] == "categoria":
+                    entrada[feature] = st.selectbox(
+                        cfg["etiqueta"], options=cfg["opciones"],
+                        index=cfg["opciones"].index(cfg["def"]),
+                    )
+                else:
+                    entrada[feature] = st.number_input(
+                        cfg["etiqueta"], min_value=cfg["min"], max_value=cfg["max"],
+                        value=cfg["def"], step=1.0,
+                    )
 
         enviado = st.form_submit_button("Predecir y guardar", type="primary")
 
@@ -100,7 +98,6 @@ def _seccion_registro(predictor: dict) -> None:
 
 
 def _seccion_listado() -> None:
-    """Listado de consultas (Read) en una tabla interactiva."""
     st.subheader(":material/list_alt: Consultas registradas")
     st.caption("Historial completo: datos de contacto, lecturas ingresadas y predicción obtenida.")
     df = C.listar_consultas()
@@ -120,7 +117,6 @@ def _seccion_listado() -> None:
 
 
 def _seccion_edicion() -> None:
-    """Edición de una consulta existente (Update)."""
     st.subheader(":material/edit: Editar consulta")
     st.caption(
         "Corrige los datos de contacto o el motivo de una consulta ya guardada. "
@@ -172,7 +168,6 @@ def _seccion_edicion() -> None:
 
 
 def _seccion_eliminacion() -> None:
-    """Eliminación de una consulta (Delete) con confirmación explícita."""
     st.subheader(":material/delete: Eliminar consulta")
     st.caption("Elimina permanentemente una consulta del historial. Esta acción no se puede deshacer.")
     df = C.listar_consultas()
@@ -201,11 +196,6 @@ def _seccion_eliminacion() -> None:
 # ---------------------------------------------------------------------------
 
 def render(df=None) -> None:
-    """Renderiza el Panel 4 completo (CRUD).
-
-    `df` se acepta por compatibilidad con el contrato de app.py; este panel no
-    lo necesita porque administra su propia persistencia en SQLite.
-    """
     st.header(":material/folder_open: Panel 4 — CRUD de consultas y predicción")
     st.caption(
         "Registra consultas con los datos de entrada del modelo, obtén la "

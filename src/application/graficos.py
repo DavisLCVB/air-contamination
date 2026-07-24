@@ -1,7 +1,3 @@
-"""Generadores de figuras estáticas (matplotlib/SHAP) para el Panel 2, el Panel 3 y
-el reporte/notebooks. No son parte del cálculo (`core/`): son la representación
-visual de resultados ya calculados.
-"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,7 +9,6 @@ from application import theme
 
 
 def figura_matriz_confusion(resultado: dict, ruta_png: Path, titulo: str | None = None) -> None:
-    """Guarda la matriz de confusión anotada (TP/TN/FP/FN) como PNG."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -43,10 +38,13 @@ def figura_matriz_confusion(resultado: dict, ruta_png: Path, titulo: str | None 
     plt.close(fig)
 
 
+def _nombres_legibles(nombres_encoding: list[str]) -> list[str]:
+    return [n.split("__", 1)[-1] if "__" in n else n for n in nombres_encoding]
+
+
 def explicar_shap(
     modelo: Any, X, dir_salida: Path, prefijo: str, n_muestra: int = 500, idx_instancia: int = 0,
 ) -> dict[str, str]:
-    """Genera summary_plot (global) y force_plot (local) con SHAP; devuelve rutas de los PNG."""
     import shap
     import matplotlib
 
@@ -54,16 +52,19 @@ def explicar_shap(
     import matplotlib.pyplot as plt
 
     from core.preprocessing import SEED
-    from core.models import FEATURES
 
     if len(X) > n_muestra:
         idx = np.random.RandomState(SEED).choice(len(X), size=n_muestra, replace=False)
         X_s = X.iloc[idx]
     else:
         X_s = X
-    X_np = X_s.to_numpy()
 
-    explainer = shap.TreeExplainer(modelo)
+    prep = modelo.named_steps["prep"]
+    clf = modelo.named_steps["clf"]
+    X_np = prep.transform(X_s)
+    nombres = _nombres_legibles(list(prep.get_feature_names_out()))
+
+    explainer = shap.TreeExplainer(clf)
     valores = explainer.shap_values(X_np)
 
     # Normaliza a los valores SHAP de la clase positiva (RF -> lista/3D; XGB -> 2D)
@@ -81,15 +82,15 @@ def explicar_shap(
     ruta_force = dir_salida / f"{prefijo}_shap_force.png"
 
     plt.figure()
-    shap.summary_plot(sv, X_s, feature_names=FEATURES, show=False)
+    shap.summary_plot(sv, X_np, feature_names=nombres, show=False)
     plt.tight_layout()
     plt.savefig(ruta_summary, dpi=130, bbox_inches="tight")
     plt.close()
 
     plt.figure()
     shap.force_plot(
-        base, sv[idx_instancia], X_s.iloc[idx_instancia].round(2),
-        feature_names=FEATURES, matplotlib=True, show=False,
+        base, sv[idx_instancia], np.round(X_np[idx_instancia], 2),
+        feature_names=nombres, matplotlib=True, show=False,
     )
     plt.savefig(ruta_force, dpi=130, bbox_inches="tight")
     plt.close()
@@ -98,7 +99,6 @@ def explicar_shap(
 
 
 def graficar(paquete: dict, ruta_png: Path | None = None):
-    """Historia + ajuste sobre test + pronóstico futuro (con IC si el modelo lo da)."""
     import matplotlib
 
     matplotlib.use("Agg")

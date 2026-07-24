@@ -31,12 +31,16 @@ data/consultas.db
 # models/metrics.json SÍ se versiona: son las métricas auditables del Panel 2
 # y del Reporte PDF, y deben poder revisarse sin reentrenar.
 #
-# rf.pkl / xgb.pkl y las figuras del modelo ganador (rf_classweight) SÍ se
-# versionan pese al patrón de arriba: panel_predictivo.py los carga desde
-# disco en el deploy de Streamlit Cloud (`_cargar_artefactos`). Sin ellos, el
-# panel entrena en caliente sobre ~700k filas dentro del contenedor gratuito
-# (1 CPU / ~1GB RAM) y el proceso muere por OOM sin loguear traceback.
-# rf_smote.pkl se deja fuera: pesa ~150MB (por encima del límite de 100MB de
+# rf.pkl / xgb.pkl y las figuras del modelo ganador (ver "mejor_modelo" en
+# metrics.json) SÍ se versionan pese al patrón de arriba: panel_predictivo.py
+# los carga desde disco en el deploy de Streamlit Cloud (`_cargar_artefactos`).
+# Sin ellos, el panel entrena en caliente sobre ~700k filas dentro del
+# contenedor gratuito (1 CPU / ~1GB RAM) y el proceso muere por OOM sin
+# loguear traceback.
+# IMPORTANTE: si reentrenas y cambia "mejor_modelo" en metrics.json, actualiza
+# también el whitelist de *_shap_summary.png/*_shap_force.png de abajo para
+# que apunte al nuevo ganador (si no, el deploy no encuentra el PNG).
+# rf_smote.pkl se deja fuera: pesa ~85MB (cerca del límite de 100MB de
 # GitHub) y el panel nunca lo carga en runtime, solo aparece en la tabla
 # comparativa de metrics.json como referencia del efecto de SMOTE.
 models/*.pkl
@@ -46,7 +50,7 @@ models/figuras/*.png
 !models/rf.pkl
 !models/xgb.pkl
 !models/confusion_matrix.png
-!models/rf_classweight_shap_summary.png
-!models/rf_classweight_shap_force.png
+!models/xgb_scaleposw_shap_summary.png
+!models/xgb_scaleposw_shap_force.png
 .agents
 .claude

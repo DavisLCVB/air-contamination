@@ -1,9 +1,3 @@
-"""
-panel_forecast.py — Panel 3 (Series temporales) del dashboard.
-
-Expone `render(df=None)`: toda la lógica de series vive en core.forecast, este
-archivo es solo la UI (demo aislada: uv run streamlit run src/application/panel_forecast.py).
-"""
 from __future__ import annotations
 
 import sys
@@ -35,7 +29,6 @@ def _cargar_df():
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def _computar(estacion, freq, periodos_test, horizonte, recortar):
-    """Corre serie -> comparar -> mejor -> futuro y devuelve solo objetos ligeros (cacheable)."""
     df = _cargar_df()
     paq = F.serie_y_pronostico(df, estacion, freq, periodos_test, horizonte, recortar)
     # se descarta el objeto de modelo ajustado (no hace falta para dibujar y aligera el caché)
@@ -48,7 +41,6 @@ def _computar(estacion, freq, periodos_test, horizonte, recortar):
 
 
 def render(df=None):
-    """Dibuja el Panel 3. `df` se acepta por el contrato de app.py pero el cómputo se cachea aparte."""
     st.subheader(":material/show_chart: Panel 3 · Serie temporal y pronóstico de PM2.5")
     st.caption("Pronóstico ≥ 4 períodos con MAPE y RMSE. Modelos: naive estacional, "
                "Holt-Winters y SARIMA; se elige el de menor MAPE en el hold-out cronológico.")

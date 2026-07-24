@@ -1,4 +1,3 @@
-"""Prioridad de intervención: cruza cluster de contaminación (Panel 1) y tendencia (Panel 3)."""
 from __future__ import annotations
 
 import numpy as np
@@ -31,7 +30,6 @@ COORDENADAS = {
 
 
 def pendiente(serie: pd.Series) -> float:
-    """Pendiente OLS (µg/m³ por mes); NaN si hay muy pocos puntos."""
     if len(serie) < N_MIN:
         return float("nan")
     x = np.arange(len(serie))
@@ -39,7 +37,6 @@ def pendiente(serie: pd.Series) -> float:
 
 
 def tabla_prioridad(df: pd.DataFrame) -> pd.DataFrame:
-    """Une severidad (cluster K-means, k=2) y trayectoria (pendiente mensual) por estación."""
     perfil = perfil_por_estacion(df)
     labels, _coords, _inercia, _silueta = clusters(perfil, 2)
 
