@@ -38,8 +38,8 @@ except Exception as e:
 
 # 2. Import de módulos del proyecto
 try:
-    import forecast as F
-    from preprocessing import cargar_y_limpiar, SEED
+    import core.forecast as F
+    from core.preprocessing import cargar_y_limpiar, SEED
     chk("import forecast + preprocessing", OK, f"SEED={SEED}, HORIZONTE={F.HORIZONTE}")
 except Exception as e:
     chk("import forecast + preprocessing", FAIL, str(e))
@@ -93,7 +93,7 @@ if serie is not None and 'mejor' in dir() and mejor:
 
 # 7. Panel importable
 try:
-    import panel_forecast  # noqa
+    import application.panel_forecast as panel_forecast  # noqa
     assert hasattr(panel_forecast, "render")
     chk("panel_forecast.render importable", OK)
 except Exception as e:

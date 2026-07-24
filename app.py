@@ -14,12 +14,12 @@ from pathlib import Path
 
 import streamlit as st
 
-# Permite `import preprocessing`, `import models`, etc. estén en src/
+# Permite `import core.X` / `import application.X` estén en src/
 RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ / "src"))
 
-from preprocessing import cargar_y_limpiar  # noqa: E402
-import theme  # noqa: E402
+from core.preprocessing import cargar_y_limpiar  # noqa: E402
+from application import theme  # noqa: E402
 
 RUTA_DATOS = RAIZ / "data" / "air_contamination.csv"
 
@@ -27,11 +27,11 @@ st.set_page_config(page_title="Dos Limas, un mismo cielo", page_icon=":material/
 
 # (módulo, ícono+etiqueta del botón de navegación, título de fallback si el panel falla)
 PANELES = [
-    ("panel_eda", ":material/query_stats: 1 · EDA & Clustering", "Panel 1 · EDA & Clustering"),
-    ("panel_predictivo", ":material/smart_toy: 2 · Predicción", "Panel 2 · Predicción de alta contaminación"),
-    ("panel_forecast", ":material/show_chart: 3 · Serie temporal", "Panel 3 · Serie temporal y pronóstico"),
-    ("panel_crud", ":material/folder_open: 4 · CRUD & Reporte", "Panel 4 · CRUD de consultas & Reporte"),
-    ("panel_recomendaciones", ":material/recommend: 5 · Recomendaciones", "Panel 5 · Recomendaciones de intervención"),
+    ("application.panel_eda", ":material/query_stats: 1 · EDA & Clustering", "Panel 1 · EDA & Clustering"),
+    ("application.panel_predictivo", ":material/smart_toy: 2 · Predicción", "Panel 2 · Predicción de alta contaminación"),
+    ("application.panel_forecast", ":material/show_chart: 3 · Serie temporal", "Panel 3 · Serie temporal y pronóstico"),
+    ("application.panel_crud", ":material/folder_open: 4 · CRUD & Reporte", "Panel 4 · CRUD de consultas & Reporte"),
+    ("application.panel_recomendaciones", ":material/recommend: 5 · Recomendaciones", "Panel 5 · Recomendaciones de intervención"),
 ]
 
 

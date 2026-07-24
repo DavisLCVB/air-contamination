@@ -1,110 +1,32 @@
 """Panel 2 del dashboard — Predictivo.
 
-Expone `render(df)` con el contenido del panel y `predecir_desde_entrada(modelo,
-valores)`, reutilizada por el CRUD del Panel 4 para predecir con el mismo modelo.
-
-Estrategia de carga: primero intenta leer los artefactos ya entrenados de `models/`
-(rápido, ideal para deploy); si no existen, los entrena una sola vez y los cachea.
+Expone `render(df)`. La lógica de modelado, carga de artefactos y predicción vive
+en `core.models`; este módulo solo dibuja la UI.
 """
-
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
-from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import altair as alt
 import pandas as pd
+import streamlit as st
 
-import models as M
-from preprocessing import cargar_y_limpiar
+from core import models as M
+from core.preprocessing import cargar_y_limpiar
 
-RUTA_METRICS = M.DIR_MODELOS / "metrics.json"
-RUTA_RF = M.DIR_MODELOS / "rf.pkl"
-RUTA_XGB = M.DIR_MODELOS / "xgb.pkl"
-
-
-# --------------------------------------------------------------------------
-# Helpers sin dependencia de Streamlit (reutilizables por app.py y el CRUD)
-# --------------------------------------------------------------------------
+from application import theme
 
 
-def predecir_desde_entrada(
-    modelo: Any, valores: dict[str, float], umbral: float = M.UMBRAL_DECISION
-) -> dict[str, Any]:
-    """Predice a partir de un dict con los 5 contaminantes de entrada.
-
-    Recibe `{pm_10, so2, no2, o3, co}` y devuelve `{etiqueta, clase, probabilidad,
-    umbral}` — lo que el CRUD del Panel 4 persiste como "entrada + predicción".
-
-    Parameters
-    ----------
-    modelo:
-        Modelo entrenado (RF o XGBoost) cargado desde `models/`.
-    valores:
-        Dict con una clave por cada nombre en `models.FEATURES`.
-    umbral:
-        Umbral de decisión (ver `models.UMBRAL_DECISION`).
-    """
-    faltan = [f for f in M.FEATURES if f not in valores]
-    if faltan:
-        raise ValueError(f"Faltan features en la entrada: {faltan}")
-
-    X = pd.DataFrame([[valores[f] for f in M.FEATURES]], columns=M.FEATURES)
-    y_pred, y_proba = M.predecir(modelo, X, umbral=umbral)
-    clase = int(y_pred[0])
-    return {
-        "clase": clase,
-        "etiqueta": "Alta contaminación" if clase == 1 else "Baja contaminación",
-        "probabilidad": float(y_proba[0]),
-        "umbral": umbral,
-    }
-
-
-def _cargar_artefactos() -> dict[str, Any] | None:
-    """Devuelve {rf, xgb, metrics} si los artefactos existen en disco; si no, None."""
-    if RUTA_RF.exists() and RUTA_XGB.exists() and RUTA_METRICS.exists():
-        return {
-            "rf": M.cargar_modelo(RUTA_RF),
-            "xgb": M.cargar_modelo(RUTA_XGB),
-            "metrics": json.loads(RUTA_METRICS.read_text(encoding="utf-8")),
-        }
-    return None
-
-
-# --------------------------------------------------------------------------
-# UI de Streamlit
-# --------------------------------------------------------------------------
-
-
-def _obtener_todo(df: pd.DataFrame):
-    """Carga artefactos de `models/` o, como fallback, entrena una sola vez (cacheado)."""
-    import streamlit as st
-
-    @st.cache_resource(show_spinner=False)
-    def _cache(_df: pd.DataFrame):
-        artefactos = _cargar_artefactos()
-        if artefactos is not None:
-            return {"origen": "disco", **artefactos}
-        # Fallback: entrenar en caliente (cold start). Para deploy conviene
-        # commitear models/*.pkl y evitar este costo.
-        salida = M.entrenar_y_evaluar_todo(_df)
-        return {
-            "origen": "entrenado",
-            "rf": salida["modelos"]["rf_classweight"],
-            "xgb": salida["modelos"]["xgb_scaleposw"],
-            "metrics": M._construir_metrics_json(salida),
-        }
-
-    return _cache(df)
+@st.cache_resource(show_spinner=False)
+def _obtener_todo(_df: pd.DataFrame):
+    return M.resolver_modelos(_df)
 
 
 def render(df: pd.DataFrame | None = None) -> None:
     """Renderiza el Panel 2 (predictivo) dentro de la app de Streamlit."""
-    import altair as alt
-    import streamlit as st
-
-    import theme
-
     if df is None:
         df = cargar_y_limpiar(str(M.RUTA_DATOS))
 
@@ -151,7 +73,7 @@ manejo explícito del desbalance.
             "hora contaminada (FN) es mayor que una falsa alarma (FP)."
         )
 
-    # --- Matriz de confusión (reactiva) + SHAP (imágenes generadas por models.py) ---
+    # --- Matriz de confusión (reactiva) + SHAP (imágenes generadas por application/graficos.py) ---
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -196,7 +118,7 @@ manejo explícito del desbalance.
                     "estaba alto (rojo) o bajo (azul) en esa hora."
                 )
             else:
-                st.info("SHAP summary se genera con `uv run python src/models.py`.")
+                st.info("SHAP summary se genera con `uv run python src/core/models.py`.")
 
     force = M.DIR_MODELOS / f"{mejor}_shap_force.png"
     if force.exists():
@@ -231,7 +153,7 @@ manejo explícito del desbalance.
             enviado = st.form_submit_button("Predecir", type="primary")
 
         if enviado:
-            res = predecir_desde_entrada(modelo, valores, umbral=umbral)
+            res = M.predecir_desde_entrada(modelo, valores, umbral=umbral)
             etiqueta = res["etiqueta"]
             (st.error if res["clase"] == 1 else st.success)(
                 f"{etiqueta} · probabilidad={res['probabilidad']:.3f} (umbral={umbral:.2f})"
@@ -242,13 +164,11 @@ manejo explícito del desbalance.
     if todo["origen"] == "entrenado":
         st.caption(
             ":material/warning: Modelos entrenados en caliente (no había artefactos en `models/`). "
-            "Para el deploy, commitea `models/*.pkl` o corre `models.py` antes."
+            "Para el deploy, commitea `models/*.pkl` o corre `core/models.py` antes."
         )
 
 
 def main() -> None:
-    import streamlit as st
-
     st.set_page_config(page_title="Panel 2 — Predictivo", layout="wide")
     render()
 

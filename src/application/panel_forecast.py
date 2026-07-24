@@ -1,18 +1,24 @@
 """
 panel_forecast.py — Panel 3 (Series temporales) del dashboard.
 
-Expone `render(df=None)`: toda la lógica de series vive en forecast.py, este
-archivo es solo la UI (demo aislada: uv run streamlit run src/panel_forecast.py).
+Expone `render(df=None)`: toda la lógica de series vive en core.forecast, este
+archivo es solo la UI (demo aislada: uv run streamlit run src/application/panel_forecast.py).
 """
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-import forecast as F
-import theme
-from preprocessing import cargar_y_limpiar
+import core.forecast as F
+from core.preprocessing import cargar_y_limpiar
+
+from application import theme
 
 _ESTACIONES = [
     "TODAS", "ATE", "CAMPO DE MARTE", "SAN BORJA", "SANTA ANITA",

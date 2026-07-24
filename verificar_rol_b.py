@@ -67,8 +67,8 @@ for paquete, modulo in [
 seccion("1. Datos y pipeline de Rol A")
 df = None
 try:
-    import models as M
-    from preprocessing import cargar_y_limpiar
+    import core.models as M
+    from core.preprocessing import cargar_y_limpiar
 
     df = cargar_y_limpiar(str(M.RUTA_DATOS))
     check("cargar_y_limpiar ejecuta", True, f"shape={df.shape}")
@@ -172,8 +172,10 @@ if rf is not None and deps.get("shap"):
         import tempfile
         from pathlib import Path
 
-        rutas = M.explicar_shap(rf, Xte, Path(tempfile.mkdtemp()), prefijo="smoke",
-                                n_muestra=300)
+        from application.graficos import explicar_shap
+
+        rutas = explicar_shap(rf, Xte, Path(tempfile.mkdtemp()), prefijo="smoke",
+                              n_muestra=300)
         ok = Path(rutas["summary"]).exists() and Path(rutas["force"]).exists()
         check("SHAP genera summary + force plot", ok)
     except Exception:  # noqa: BLE001

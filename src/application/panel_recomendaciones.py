@@ -1,60 +1,38 @@
 """
 panel_recomendaciones.py — Panel 5 (Recomendaciones de intervención) del dashboard.
 
-Sintetiza el clustering del Panel 1 (severidad: ¿la estación está en el grupo de alta
-contaminación?) y la lógica de series del Panel 3 (trayectoria: ¿su PM2.5 mensual mejora
-por sí solo?) en una lista de estaciones prioritarias para intervención. Expone
-`render(df=None)` igual que los demás paneles (demo aislada:
-uv run streamlit run src/panel_recomendaciones.py).
+Sintetiza el clustering del Panel 1 (severidad) y la lógica de series del Panel 3
+(trayectoria) en una lista de estaciones prioritarias para intervención. La
+combinación vive en `core.recomendaciones`; este módulo solo dibuja la UI (demo
+aislada: uv run streamlit run src/application/panel_recomendaciones.py).
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import altair as alt
-import numpy as np
 import pandas as pd
 import streamlit as st
 
-import forecast as F
-import theme
-from panel_eda import ECA_PM25_ANUAL, _clusters, _perfil_por_estacion
-from preprocessing import cargar_y_limpiar
+from core.clustering import ECA_PM25_ANUAL
+from core.forecast import RUTA_DATOS
+from core.preprocessing import cargar_y_limpiar
+from core.recomendaciones import COORDENADAS, UMBRAL_MEJORA, tabla_prioridad
 
-N_MIN = 24  # meses mínimos para confiar en la pendiente de tendencia
-
-# Zona muerta para la pendiente: con series de ~5-6 años, una pendiente dentro de
-# ±0.01 µg/m³/mes es indistinguible del ruido natural de la serie. Se trata como
-# "sin cambio confirmado" (no como mejora) para no penalizar por una pendiente
-# negativa que en realidad es prácticamente plana.
-UMBRAL_MEJORA = -0.01  # µg/m³ por mes
-
-# Coordenadas aproximadas (centro del distrito/localidad, fuente: Wikipedia/geodatos
-# públicos) — referenciales para ubicar la estación en el mapa, no son las coordenadas
-# exactas del instrumento SENAMHI (no publicadas).
-_COORDENADAS = {
-    "ATE": (-12.0103, -76.8700),
-    "CAMPO DE MARTE": (-12.0681, -77.0419),
-    "SAN BORJA": (-12.1000, -77.0170),
-    "SANTA ANITA": (-12.0432, -76.9631),
-    "VILLA MARIA DEL TRIUNFO": (-12.1570, -76.9310),
-    "HUACHIPA": (-11.9988, -76.9307),
-    "SAN JUAN DE LURIGANCHO": (-12.0330, -77.0170),
-    "SAN MARTIN DE PORRES": (-12.0278, -77.0433),
-    "CARABAYLLO": (-11.8500, -77.0330),
-    "PUENTE PIEDRA": (-11.8750, -77.0653),
-}
+from application import theme
 
 
 @st.cache_data(show_spinner=False)
 def _cargar_df():
-    return cargar_y_limpiar(str(F.RUTA_DATOS))
+    return cargar_y_limpiar(str(RUTA_DATOS))
 
 
-def _pendiente(serie: pd.Series) -> float:
-    """Pendiente OLS (µg/m³ por mes) de una serie mensual; NaN si hay muy pocos puntos."""
-    if len(serie) < N_MIN:
-        return float("nan")
-    x = np.arange(len(serie))
-    return float(np.polyfit(x, serie.values, 1)[0])
+@st.cache_data(show_spinner=True)
+def _tabla_prioridad() -> pd.DataFrame:
+    return tabla_prioridad(_cargar_df())
 
 
 def _texto_tendencia(v: float) -> str:
@@ -67,34 +45,6 @@ def _texto_tendencia(v: float) -> str:
     if v < -banda:
         return f"▼ {v:+.3f} µg/m³/mes"
     return f"→ {v:+.3f} µg/m³/mes (estable)"
-
-
-@st.cache_data(show_spinner=True)
-def _tabla_prioridad() -> pd.DataFrame:
-    """Une severidad (cluster K-means, k=2) y trayectoria (pendiente mensual) por estación."""
-    df = _cargar_df()
-    perfil = _perfil_por_estacion(df)
-    labels, _coords, _inercia, _silueta = _clusters(perfil, 2)
-
-    medias_cluster = perfil["pm_25"].groupby(labels).mean()
-    label_alta = medias_cluster.idxmax()
-
-    filas = []
-    for i, estacion in enumerate(perfil.index):
-        serie = F.construir_serie(df, estacion=estacion, freq="MS")
-        filas.append({
-            "estacion": estacion,
-            "pm25": float(perfil.loc[estacion, "pm_25"]),
-            "cluster_alta": bool(labels[i] == label_alta),
-            "pendiente": _pendiente(serie),
-            "n_meses": len(serie),
-        })
-
-    tabla = pd.DataFrame(filas)
-    tabla["criterio_severidad"] = tabla["cluster_alta"]
-    tabla["criterio_trayectoria"] = tabla["pendiente"] >= UMBRAL_MEJORA
-    tabla["prioridad"] = tabla["criterio_severidad"] & tabla["criterio_trayectoria"]
-    return tabla.sort_values(["prioridad", "pm25"], ascending=[False, False]).reset_index(drop=True)
 
 
 def render(df=None):
@@ -183,7 +133,7 @@ def render(df=None):
                 )
 
         with col_mapa:
-            coords = _COORDENADAS.get(seleccion)
+            coords = COORDENADAS.get(seleccion)
             if coords:
                 st.map(pd.DataFrame({"lat": [coords[0]], "lon": [coords[1]]}), zoom=12, size=250)
                 st.caption(

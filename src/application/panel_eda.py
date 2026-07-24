@@ -3,35 +3,29 @@ panel_eda.py — Panel 1 (EDA + Clustering) del dashboard.
 
 Expone `render(df=None)`: dibuja el perfil de contaminación por estación y el
 clustering K-means. Si no se le pasa `df`, lo carga por su cuenta (demo aislada:
-uv run streamlit run src/panel_eda.py).
+uv run streamlit run src/application/panel_eda.py).
 """
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-from preprocessing import cargar_y_limpiar, SEED
-import theme
+from core.clustering import ECA_PM25_24H, ECA_PM25_ANUAL, clusters, perfil_por_estacion
+from core.forecast import RUTA_DATOS
+from core.preprocessing import SEED, cargar_y_limpiar
 
-try:
-    from preprocessing import CONTAMINANTES
-except Exception:  # pragma: no cover
-    CONTAMINANTES = ["pm_10", "pm_25", "so2", "no2", "o3", "co"]
+from application import theme
 
 COL_ESTACION = "estacion"
 COL_FECHA = "fecha_hora"
 COL_IMPUTADO = "pm_25_imputado"
-ECA_PM25_24H = 50  # µg/m³ — D.S. N° 003-2017-MINAM, lectura puntual de 24h (mismo umbral que Panel 2)
-ECA_PM25_ANUAL = 25  # µg/m³ — D.S. N° 003-2017-MINAM, promedio de largo plazo (aplica a un promedio histórico multi-año)
-
-# Ruta de datos: se reutiliza la de forecast.py si está disponible, para no duplicar
-try:
-    from forecast import RUTA_DATOS
-except Exception:  # pragma: no cover
-    from pathlib import Path
-    RUTA_DATOS = Path(__file__).resolve().parent.parent / "data" / "air_contamination.csv"
 
 
 @st.cache_data(show_spinner=False)
@@ -39,35 +33,14 @@ def _cargar_df():
     return cargar_y_limpiar(str(RUTA_DATOS))
 
 
-def _contaminantes_presentes(df: pd.DataFrame) -> list[str]:
-    """Contaminantes de la lista oficial que realmente están en el df."""
-    return [c for c in CONTAMINANTES if c in df.columns]
-
-
 @st.cache_data(show_spinner=False)
 def _perfil_por_estacion(df: pd.DataFrame) -> pd.DataFrame:
-    """Promedio de cada contaminante por estación — la 'huella' de cada zona."""
-    cols = _contaminantes_presentes(df)
-    return df.groupby(COL_ESTACION)[cols].mean()
+    return perfil_por_estacion(df)
 
 
 @st.cache_data(show_spinner=True)
 def _clusters(perfil: pd.DataFrame, k: int):
-    """
-    Clustering K-means de las estaciones sobre su perfil de contaminación (estandarizado),
-    más una proyección PCA 2D para poder graficarlo. Devuelve (labels, coords2d, inercia, silueta).
-    """
-    from sklearn.cluster import KMeans
-    from sklearn.decomposition import PCA
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.metrics import silhouette_score
-
-    X = StandardScaler().fit_transform(perfil.values)
-    km = KMeans(n_clusters=k, random_state=SEED, n_init=10)
-    labels = km.fit_predict(X)
-    coords = PCA(n_components=2, random_state=SEED).fit_transform(X)
-    silueta = float(silhouette_score(X, labels))
-    return labels, coords, float(km.inertia_), silueta
+    return clusters(perfil, k)
 
 
 def render(df=None):
@@ -80,7 +53,7 @@ def render(df=None):
                "Motiva la tesis de las 'Dos Limas': hay zonas sistemáticamente más "
                "contaminadas que otras.")
 
-    cols = _contaminantes_presentes(df)
+    cols = [c for c in ["pm_10", "pm_25", "so2", "no2", "o3", "co"] if c in df.columns]
     p = theme.paleta()
 
     # --- Resumen general -------------------------------------------------------------

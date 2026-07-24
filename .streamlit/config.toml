@@ -1,5 +1,5 @@
 # Tema visual del dashboard — Catppuccin Mocha (oscuro), consistente con los
-# colores declarados en src/theme.py para los gráficos matplotlib.
+# colores declarados en src/application/theme.py para los gráficos matplotlib.
 [theme]
 base = "dark"
 primaryColor = "#cba6f7"            # mauve — botones, tabs activas, sliders

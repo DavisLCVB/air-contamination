@@ -20,9 +20,9 @@ a partir del resto de contaminantes, con manejo de desbalance e interpretabilida
 
 | Rol | Responsabilidad | Entregables clave |
 |-|-|-|
-| **A — Datos y EDA** | Limpieza, imputación, EDA, clustering K-means | `src/preprocessing.py`, `notebooks/01_eda.ipynb`, Panel 1 |
-| **B — Modelado y XAI** | Etiqueta binaria, RF vs XGBoost, matriz de confusión, SMOTE, SHAP | `src/models.py`, `notebooks/02_modeling.ipynb`, Panel 2 |
-| **C — Series e infra** | Pronóstico, deploy, integración de los 4 paneles | `src/forecast.py`, `src/panel_forecast.py`, `notebooks/03_forecasting.qmd`, `app.py` |
+| **A — Datos y EDA** | Limpieza, imputación, EDA, clustering K-means | `src/core/preprocessing.py`, `notebooks/01_eda.ipynb`, Panel 1 |
+| **B — Modelado y XAI** | Etiqueta binaria, RF vs XGBoost, matriz de confusión, SMOTE, SHAP | `src/core/models.py`, `notebooks/02_modeling.ipynb`, Panel 2 |
+| **C — Series e infra** | Pronóstico, deploy, integración de los 5 paneles | `src/core/forecast.py`, `src/application/panel_forecast.py`, `notebooks/03_forecasting.qmd`, `app.py` |
 | **D — CRUD y reporte** | CRUD de consultas, Reporte PDF | Panel 4, Reporte PDF |
 
 ## Requisitos
@@ -41,20 +41,20 @@ uv sync                 # crea el entorno y resuelve dependencias desde uv.lock
 ## Reproducir el proyecto desde cero
 
 Todo el flujo es reproducible sin pasos manuales. La semilla oficial es `SEED = 96`
-(definida en `src/preprocessing.py` e importada por el resto de módulos), de modo que
+(definida en `src/core/preprocessing.py` e importada por el resto de módulos), de modo que
 cualquier split, muestreo o modelo aleatorio produce **los mismos resultados**.
 
 ```bash
 # 1. Regenerar el dataset limpio (Rol A). Genera data/air_contamination_clean.parquet
-uv run python src/preprocessing.py
+uv run python src/core/preprocessing.py
 
 # 2. Entrenar modelos, evaluar y generar artefactos de XAI (Rol B).
 #    Produce models/rf.pkl, models/xgb.pkl, models/metrics.json y figuras.
-uv run python src/models.py
+uv run python src/core/models.py
 
 # 3. Pronóstico de series temporales (Rol C).
 #    Produce models/forecast_metrics.json y la figura del pronóstico.
-uv run python src/forecast.py
+uv run python src/core/forecast.py
 
 # 4. (Rol A) Notebook de EDA + clustering
 uv run jupyter nbconvert --to notebook --execute notebooks/01_eda.ipynb --output 01_eda.ipynb
@@ -66,9 +66,9 @@ uv run jupyter nbconvert --to notebook --execute notebooks/02_modeling.ipynb --o
 uv run quarto render notebooks/03_forecasting.qmd
 
 # 7. Demo aislada del Panel 2 (predictivo) sin esperar a la app integrada
-uv run streamlit run src/panel_predictivo.py
+uv run streamlit run src/application/panel_predictivo.py
 
-# 8. App integrada — los 4 paneles en un solo dashboard
+# 8. App integrada — los 5 paneles en un solo dashboard
 uv run streamlit run app.py
 ```
 
@@ -84,13 +84,21 @@ uv run streamlit run app.py
 ├── data/
 │   └── air_contamination.csv          # crudo SENAMHI (versionado)
 ├── src/
-│   ├── preprocessing.py               # Rol A: carga, limpieza, imputación, constantes
-│   ├── panel_eda.py                   # Rol A: contenido del Panel 1 (importable por app.py)
-│   ├── models.py                      # Rol B: etiqueta, RF vs XGBoost, SMOTE, métricas, SHAP
-│   ├── panel_predictivo.py            # Rol B: contenido del Panel 2 (importable por app.py)
-│   ├── forecast.py                    # Rol C: serie temporal, modelos, MAPE/RMSE
-│   ├── panel_forecast.py              # Rol C: contenido del Panel 3 (importable por app.py)
-│   └── panel_crud.py                  # Rol D: contenido del Panel 4, CRUD sobre SQLite
+│   ├── core/                          # lógica y cálculo, sin Streamlit
+│   │   ├── preprocessing.py           # Rol A: carga, limpieza, imputación, constantes
+│   │   ├── clustering.py              # Rol A: perfil por estación + K-means
+│   │   ├── models.py                  # Rol B: etiqueta, RF vs XGBoost, SMOTE, métricas
+│   │   ├── forecast.py                # Rol C: serie temporal, modelos, MAPE/RMSE
+│   │   ├── recomendaciones.py         # cruce severidad + tendencia (Panel 5)
+│   │   └── consultas.py               # Rol D: CRUD SQLite + resolución del predictor
+│   └── application/                   # Streamlit, estilos, colores
+│       ├── theme.py                   # paleta Catppuccin + estilos matplotlib/Altair
+│       ├── graficos.py                # figuras estáticas (matriz de confusión, SHAP, pronóstico)
+│       ├── panel_eda.py                # Rol A: contenido del Panel 1
+│       ├── panel_predictivo.py         # Rol B: contenido del Panel 2
+│       ├── panel_forecast.py           # Rol C: contenido del Panel 3
+│       ├── panel_crud.py               # Rol D: contenido del Panel 4
+│       └── panel_recomendaciones.py    # contenido del Panel 5
 ├── notebooks/
 │   ├── 01_eda.ipynb                   # Rol A: EDA + clustering
 │   ├── 02_modeling.ipynb              # Rol B: modelado + interpretabilidad

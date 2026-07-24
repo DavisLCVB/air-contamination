@@ -11,7 +11,7 @@ Los 4 paneles son pestañas independientes en `app.py`; cada una llama a
 
 ## Panel 1 · EDA & Clustering
 
-**Módulo:** `src/panel_eda.py`
+**Módulo:** `src/application/panel_eda.py`
 
 Perfila la contaminación por zona y agrupa las estaciones según qué tan
 contaminadas están, para sustentar con datos la tesis de las "Dos Limas": no
@@ -77,7 +77,7 @@ relacionados.
 
 ## Panel 2 · Predicción de alta contaminación
 
-**Módulo:** `src/panel_predictivo.py`
+**Módulo:** `src/application/panel_predictivo.py`
 
 Clasifica cada hora como *alta contaminación* cuando `PM2.5 > 50 µg/m³` (umbral
 ECA), usando el resto de contaminantes como variables. `pm_25` se excluye de
@@ -131,7 +131,7 @@ Si `models/*.pkl` no existe en disco, el panel entrena en caliente una sola vez
 
 ## Panel 3 · Serie temporal y pronóstico
 
-**Módulo:** `src/panel_forecast.py` (lógica de series en `src/forecast.py`)
+**Módulo:** `src/application/panel_forecast.py` (lógica de series en `src/core/forecast.py`)
 
 Pronostica PM2.5 a futuro (≥ 4 períodos) comparando tres modelos —naive
 estacional, Holt-Winters y SARIMA— y eligiendo el de menor MAPE en un
@@ -180,7 +180,7 @@ solo el pasado de la propia serie) y dónde están las cifras auditables
 
 ## Panel 4 · CRUD de consultas & Reporte
 
-**Módulo:** `src/panel_crud.py`
+**Módulo:** `src/application/panel_crud.py`
 
 CRUD completo sobre SQLite (`data/consultas.db`, no versionado — se crea solo
 al primer uso) que registra "consultas de predicción": cada una guarda los
