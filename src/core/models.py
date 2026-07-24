@@ -22,7 +22,9 @@ RUTA_XGB = DIR_MODELOS / "xgb.pkl"
 
 OBJETIVO = "pm_25"
 ECA_PM25 = 50.0  # µg/m³ -- umbral de "hora de alta contaminación"
-FEATURES = [c for c in CONTAMINANTES if c != OBJETIVO]
+FEATURES_NUM = [c for c in CONTAMINANTES if c != OBJETIVO] + ["hora", "mes"]
+FEATURES_CAT = ["estacion"]
+FEATURES = FEATURES_NUM + FEATURES_CAT
 TEST_SIZE = 0.30
 UMBRAL_DECISION = 0.50
 SOLO_REAL = True  # solo entrena/evalúa sobre pm_25 medido, no imputado
@@ -67,14 +69,22 @@ def dividir(
     return train_test_split(X, y, test_size=test_size, stratify=y, random_state=SEED)
 
 
-# --- Balanceo -----------------------------------------------------------------
+# --- Preprocesamiento (encoding) ----------------------------------------------
 
-def aplicar_smote(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
-    """Sobremuestreo SMOTE de la clase minoritaria (solo en train)."""
-    from imblearn.over_sampling import SMOTE
+def _preprocesador() -> Any:
+    """OneHot para `estacion`; el resto de features (numéricas) pasan sin cambios.
 
-    X_res, y_res = SMOTE(random_state=SEED).fit_resample(X_train, y_train)
-    return X_res, y_res
+    Se antepone a cada clasificador dentro de un Pipeline para que el contrato de
+    entrada (`FEATURES`, incl. `estacion` como texto) sea el mismo en train y en
+    `predecir_desde_entrada` -- el encoding vive con el modelo, no en el caller.
+    """
+    from sklearn.compose import ColumnTransformer
+    from sklearn.preprocessing import OneHotEncoder
+
+    return ColumnTransformer(
+        [("estacion", OneHotEncoder(handle_unknown="ignore", sparse_output=False), FEATURES_CAT)],
+        remainder="passthrough",
+    )
 
 
 # --- Entrenamiento --------------------------------------------------------------
@@ -83,14 +93,16 @@ def entrenar_rf(
     X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
     balanceo: str = "class_weight", max_depth: int = 20, min_samples_leaf: int = 20,
 ) -> Any:
-    """Random Forest; `balanceo='class_weight'` usa class_weight='balanced'."""
+    """Pipeline (encoding + Random Forest); `balanceo='class_weight'` usa class_weight='balanced'."""
     from sklearn.ensemble import RandomForestClassifier
+    from imblearn.pipeline import Pipeline as ImbPipeline
 
     class_weight = "balanced" if balanceo == "class_weight" else None
-    modelo = RandomForestClassifier(
+    clf = RandomForestClassifier(
         n_estimators=n_estimators, random_state=SEED, n_jobs=-1,
         class_weight=class_weight, max_depth=max_depth, min_samples_leaf=min_samples_leaf,
     )
+    modelo = ImbPipeline([("prep", _preprocesador()), ("clf", clf)])
     modelo.fit(X_train, y_train)
     return modelo
 
@@ -99,8 +111,9 @@ def entrenar_xgb(
     X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
     learning_rate: float = 0.1, max_depth: int = 6, balanceo: str = "scale_pos_weight",
 ) -> Any:
-    """XGBoost; `balanceo='scale_pos_weight'` fija scale_pos_weight = n_neg/n_pos."""
+    """Pipeline (encoding + XGBoost); `balanceo='scale_pos_weight'` fija scale_pos_weight = n_neg/n_pos."""
     from xgboost import XGBClassifier
+    from imblearn.pipeline import Pipeline as ImbPipeline
 
     if balanceo == "scale_pos_weight":
         n_pos = int((y_train == 1).sum())
@@ -109,11 +122,35 @@ def entrenar_xgb(
     else:
         scale_pos_weight = 1.0
 
-    modelo = XGBClassifier(
+    clf = XGBClassifier(
         n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth,
         subsample=0.9, colsample_bytree=0.9, scale_pos_weight=scale_pos_weight,
         tree_method="hist", eval_metric="logloss", random_state=SEED, n_jobs=-1,
     )
+    modelo = ImbPipeline([("prep", _preprocesador()), ("clf", clf)])
+    modelo.fit(X_train, y_train)
+    return modelo
+
+
+def entrenar_rf_smote(
+    X_train: pd.DataFrame, y_train: pd.Series, n_estimators: int = 300,
+    max_depth: int = 20, min_samples_leaf: int = 20,
+) -> Any:
+    """Pipeline (encoding + SMOTE + Random Forest); SMOTE corre sobre las features
+    ya codificadas (no se le puede pasar `estacion` como texto crudo)."""
+    from sklearn.ensemble import RandomForestClassifier
+    from imblearn.over_sampling import SMOTE
+    from imblearn.pipeline import Pipeline as ImbPipeline
+
+    clf = RandomForestClassifier(
+        n_estimators=n_estimators, random_state=SEED, n_jobs=-1,
+        class_weight=None, max_depth=max_depth, min_samples_leaf=min_samples_leaf,
+    )
+    modelo = ImbPipeline([
+        ("prep", _preprocesador()),
+        ("smote", SMOTE(random_state=SEED)),
+        ("clf", clf),
+    ])
     modelo.fit(X_train, y_train)
     return modelo
 
@@ -224,8 +261,7 @@ def entrenar_y_evaluar_todo(
 
     rf = entrenar_rf(X_train, y_train, n_estimators=150, balanceo="class_weight")
     xgb = entrenar_xgb(X_train, y_train, balanceo="scale_pos_weight")
-    X_smote, y_smote = aplicar_smote(X_train, y_train)
-    rf_smote = entrenar_rf(X_smote, y_smote, n_estimators=150, balanceo="ninguno")
+    rf_smote = entrenar_rf_smote(X_train, y_train, n_estimators=150)
 
     modelos = {"rf_classweight": rf, "xgb_scaleposw": xgb, "rf_smote": rf_smote}
     resultados = {

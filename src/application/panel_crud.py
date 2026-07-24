@@ -57,16 +57,22 @@ def _seccion_registro(predictor: dict) -> None:
                                                   default=TIPOS_CONSULTA[0])
             mensaje = st.text_area("Mensaje / observación", height=80)
 
-        st.markdown("**Datos de entrada del modelo (contaminantes)**")
+        st.markdown("**Datos de entrada del modelo (contaminantes, hora, mes, estación)**")
         columnas = st.columns(len(FEATURES))
-        entrada: dict[str, float] = {}
+        entrada: dict[str, float | str] = {}
         for columna, feature in zip(columnas, FEATURES):
             cfg = CONFIG_FEATURES[feature]
             with columna:
-                entrada[feature] = st.number_input(
-                    cfg["etiqueta"], min_value=cfg["min"], max_value=cfg["max"],
-                    value=cfg["def"], step=1.0,
-                )
+                if cfg["tipo"] == "categoria":
+                    entrada[feature] = st.selectbox(
+                        cfg["etiqueta"], options=cfg["opciones"],
+                        index=cfg["opciones"].index(cfg["def"]),
+                    )
+                else:
+                    entrada[feature] = st.number_input(
+                        cfg["etiqueta"], min_value=cfg["min"], max_value=cfg["max"],
+                        value=cfg["def"], step=1.0,
+                    )
 
         enviado = st.form_submit_button("Predecir y guardar", type="primary")
 

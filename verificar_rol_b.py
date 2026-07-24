@@ -153,17 +153,17 @@ if Xtr is not None:
     else:
         check("XGBoost entrena y evalúa", False, "xgboost no instalado")
 
-    # SMOTE
+    # RF + SMOTE
     if deps.get("imblearn"):
         try:
-            Xr, yr = M.aplicar_smote(Xtr, ytr)
-            check("SMOTE balancea el train", yr.mean() > ytr.mean(),
-                  f"positivos {ytr.mean()*100:.1f}% → {yr.mean()*100:.1f}%")
+            rf_smote = M.entrenar_rf_smote(Xtr, ytr, n_estimators=N_ARBOLES_TEST)
+            r_smote = M.evaluar(rf_smote, Xte, yte)
+            check("RF+SMOTE entrena y evalúa", True, f"ROC-AUC={r_smote['roc_auc']:.3f}")
         except Exception:  # noqa: BLE001
-            check("SMOTE balancea el train", False, "ver traceback")
+            check("RF+SMOTE entrena y evalúa", False, "ver traceback")
             traceback.print_exc()
     else:
-        check("SMOTE balancea el train", False, "imbalanced-learn no instalado")
+        check("RF+SMOTE entrena y evalúa", False, "imbalanced-learn no instalado")
 
 # --------------------------------------------------------------------------
 seccion("5. SHAP (muestra pequeña)")

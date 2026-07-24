@@ -43,10 +43,20 @@ def figura_matriz_confusion(resultado: dict, ruta_png: Path, titulo: str | None 
     plt.close(fig)
 
 
+def _nombres_legibles(nombres_encoding: list[str]) -> list[str]:
+    """Quita el prefijo `estacion__`/`remainder__` que deja ColumnTransformer."""
+    return [n.split("__", 1)[-1] if "__" in n else n for n in nombres_encoding]
+
+
 def explicar_shap(
     modelo: Any, X, dir_salida: Path, prefijo: str, n_muestra: int = 500, idx_instancia: int = 0,
 ) -> dict[str, str]:
-    """Genera summary_plot (global) y force_plot (local) con SHAP; devuelve rutas de los PNG."""
+    """Genera summary_plot (global) y force_plot (local) con SHAP; devuelve rutas de los PNG.
+
+    `modelo` es un Pipeline (`prep` + `clf`, ver core/models.py): TreeExplainer necesita
+    el clasificador crudo, así que se explica sobre la matriz ya codificada por `prep`
+    (incl. el one-hot de `estacion`), no sobre las columnas de entrada originales.
+    """
     import shap
     import matplotlib
 
@@ -54,16 +64,19 @@ def explicar_shap(
     import matplotlib.pyplot as plt
 
     from core.preprocessing import SEED
-    from core.models import FEATURES
 
     if len(X) > n_muestra:
         idx = np.random.RandomState(SEED).choice(len(X), size=n_muestra, replace=False)
         X_s = X.iloc[idx]
     else:
         X_s = X
-    X_np = X_s.to_numpy()
 
-    explainer = shap.TreeExplainer(modelo)
+    prep = modelo.named_steps["prep"]
+    clf = modelo.named_steps["clf"]
+    X_np = prep.transform(X_s)
+    nombres = _nombres_legibles(list(prep.get_feature_names_out()))
+
+    explainer = shap.TreeExplainer(clf)
     valores = explainer.shap_values(X_np)
 
     # Normaliza a los valores SHAP de la clase positiva (RF -> lista/3D; XGB -> 2D)
@@ -81,15 +94,15 @@ def explicar_shap(
     ruta_force = dir_salida / f"{prefijo}_shap_force.png"
 
     plt.figure()
-    shap.summary_plot(sv, X_s, feature_names=FEATURES, show=False)
+    shap.summary_plot(sv, X_np, feature_names=nombres, show=False)
     plt.tight_layout()
     plt.savefig(ruta_summary, dpi=130, bbox_inches="tight")
     plt.close()
 
     plt.figure()
     shap.force_plot(
-        base, sv[idx_instancia], X_s.iloc[idx_instancia].round(2),
-        feature_names=FEATURES, matplotlib=True, show=False,
+        base, sv[idx_instancia], np.round(X_np[idx_instancia], 2),
+        feature_names=nombres, matplotlib=True, show=False,
     )
     plt.savefig(ruta_force, dpi=130, bbox_inches="tight")
     plt.close()

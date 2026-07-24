@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from core import models as M
+from core import consultas as C
 from core.preprocessing import cargar_y_limpiar
 
 from application import theme
@@ -141,15 +142,26 @@ manejo explícito del desbalance.
         modelo = todo["rf"] if mejor.startswith("rf") else todo["xgb"]
 
         st.caption(
-            "Ingresa una lectura de los otros contaminantes para esa hora y el modelo "
-            "estima si esa combinación corresponde a una hora de alta contaminación de PM2.5."
+            "Ingresa una lectura de los otros contaminantes, la hora, el mes y la "
+            "estación, y el modelo estima si esa combinación corresponde a una hora "
+            "de alta contaminación de PM2.5."
         )
-        defaults = {"pm_10": 80.0, "so2": 10.0, "no2": 30.0, "o3": 15.0, "co": 800.0}
         with st.form("form_prediccion_interactiva", border=False):
             cols = st.columns(len(M.FEATURES))
-            valores: dict[str, float] = {}
+            valores: dict[str, float | str] = {}
             for c, feat in zip(cols, M.FEATURES):
-                valores[feat] = c.number_input(feat, min_value=0.0, value=defaults.get(feat, 0.0))
+                cfg = C.CONFIG_FEATURES[feat]
+                with c:
+                    if cfg["tipo"] == "categoria":
+                        valores[feat] = st.selectbox(
+                            cfg["etiqueta"], options=cfg["opciones"],
+                            index=cfg["opciones"].index(cfg["def"]),
+                        )
+                    else:
+                        valores[feat] = st.number_input(
+                            cfg["etiqueta"], min_value=cfg["min"], max_value=cfg["max"],
+                            value=cfg["def"], step=1.0,
+                        )
             enviado = st.form_submit_button("Predecir", type="primary")
 
         if enviado:

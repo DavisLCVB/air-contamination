@@ -80,11 +80,13 @@ relacionados.
 **Módulo:** `src/application/panel_predictivo.py`
 
 Clasifica cada hora como *alta contaminación* cuando `PM2.5 > 50 µg/m³` (umbral
-ECA), usando el resto de contaminantes como variables. `pm_25` se excluye de
-las features para evitar fuga de la variable objetivo, y el modelo se entrena
-solo con PM2.5 **medido** (no imputado). La clase "alta" es minoritaria
-(~7.9% de las horas), de ahí el manejo explícito del desbalance (SMOTE /
-`class_weight`).
+ECA), usando el resto de contaminantes (`pm_10, so2, no2, o3, co`) más `hora`,
+`mes` y `estacion` como variables. `estacion` se codifica con one-hot dentro
+del propio Pipeline del modelo (`core/models.py::_preprocesador`). `pm_25` se
+excluye de las features para evitar fuga de la variable objetivo, y el modelo
+se entrena solo con PM2.5 **medido** (no imputado). La clase "alta" es
+minoritaria (~7.9% de las horas), de ahí el manejo explícito del desbalance
+(SMOTE / `class_weight`).
 
 ### Comparación de modelos (tabla)
 
@@ -117,8 +119,9 @@ valor base, hasta llegar a la probabilidad final del modelo.
 - **Slider "Umbral de decisión"** (0.05–0.95, default = umbral de
   `metrics.json`): bajarlo sube el recall de "alta" a costa de más falsos
   positivos.
-- **5 campos numéricos** (`pm_10, so2, no2, o3, co`): lectura de los otros
-  contaminantes para esa hora.
+- **8 campos** (`pm_10, so2, no2, o3, co, hora, mes` como numéricos y
+  `estacion` como desplegable): lectura de los otros contaminantes, la hora,
+  el mes y la estación de esa hora.
 - **Botón "Predecir":** corre el modelo ganador sobre los valores ingresados y
   muestra la etiqueta (alta/baja contaminación), la probabilidad y el umbral
   usado. El resultado queda en `st.session_state["ultima_prediccion"]` para que
@@ -203,8 +206,9 @@ Al cargar el panel, `_cargar_predictor()` intenta en orden:
 ### Pestañas (Crear / Listar / Editar / Eliminar)
 
 - **Crear:** formulario con nombre (obligatorio), correo, tipo de consulta,
-  mensaje y los 5 contaminantes (`pm_10, so2, no2, o3, co`). Al enviar, corre
-  el predictor activo y guarda entrada + predicción en SQLite.
+  mensaje y las 8 variables del modelo (`pm_10, so2, no2, o3, co, hora, mes` y
+  `estacion` como desplegable). Al enviar, corre el predictor activo y guarda
+  entrada + predicción en SQLite.
 - **Listar:** tabla con todas las consultas (más recientes primero) y botón
   para descargar el historial completo en CSV.
 - **Editar:** actualiza nombre, correo, tipo de consulta y mensaje de una

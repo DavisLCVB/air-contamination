@@ -26,15 +26,27 @@ RUTA_BD = Path(os.environ.get("CRUD_DB_PATH", _RAIZ / "data" / "consultas.db"))
 DIR_MODELOS = _RAIZ / "models"
 NOMBRE_TABLA = "consultas"
 
-FEATURES = ["pm_10", "so2", "no2", "o3", "co"]
+FEATURES = ["pm_10", "so2", "no2", "o3", "co", "hora", "mes", "estacion"]
 NOMBRES_MODELO = ["rf_classweight.joblib", "rf.pkl", "rf_classweight.pkl", "rf.joblib"]
 
+ESTACIONES = [
+    "ATE", "CAMPO DE MARTE", "CARABAYLLO", "HUACHIPA", "PUENTE PIEDRA",
+    "SAN BORJA", "SAN JUAN DE LURIGANCHO", "SAN MARTIN DE PORRES",
+    "SANTA ANITA", "VILLA MARIA DEL TRIUNFO",
+]
+
+# `tipo` distingue cómo la UI (panel_predictivo.py / panel_crud.py) debe pedir el
+# dato: "numero" -> number_input con min/max/def; "categoria" -> selectbox con
+# `opciones`/`def`. `estacion` no tiene min/max porque no es numérica.
 CONFIG_FEATURES = {
-    "pm_10": {"etiqueta": "PM10 (ug/m3)", "min": 0.0, "max": 1000.0, "def": 80.0},
-    "so2": {"etiqueta": "SO2 (ug/m3)", "min": 0.0, "max": 500.0, "def": 15.0},
-    "no2": {"etiqueta": "NO2 (ug/m3)", "min": 0.0, "max": 500.0, "def": 35.0},
-    "o3": {"etiqueta": "O3 (ug/m3)", "min": 0.0, "max": 500.0, "def": 12.0},
-    "co": {"etiqueta": "CO (ug/m3)", "min": 0.0, "max": 20000.0, "def": 900.0},
+    "pm_10": {"tipo": "numero", "etiqueta": "PM10 (ug/m3)", "min": 0.0, "max": 1000.0, "def": 80.0},
+    "so2": {"tipo": "numero", "etiqueta": "SO2 (ug/m3)", "min": 0.0, "max": 500.0, "def": 15.0},
+    "no2": {"tipo": "numero", "etiqueta": "NO2 (ug/m3)", "min": 0.0, "max": 500.0, "def": 35.0},
+    "o3": {"tipo": "numero", "etiqueta": "O3 (ug/m3)", "min": 0.0, "max": 500.0, "def": 12.0},
+    "co": {"tipo": "numero", "etiqueta": "CO (ug/m3)", "min": 0.0, "max": 20000.0, "def": 900.0},
+    "hora": {"tipo": "numero", "etiqueta": "Hora del día (0-23)", "min": 0.0, "max": 23.0, "def": 12.0},
+    "mes": {"tipo": "numero", "etiqueta": "Mes (1-12)", "min": 1.0, "max": 12.0, "def": 6.0},
+    "estacion": {"tipo": "categoria", "etiqueta": "Estación de monitoreo", "opciones": ESTACIONES, "def": ESTACIONES[0]},
 }
 
 TIPOS_CONSULTA = ["Predicción puntual", "Reporte ciudadano", "Consulta técnica", "Otro"]
@@ -53,7 +65,7 @@ def conectar() -> sqlite3.Connection:
 
 
 def inicializar_bd() -> None:
-    """Crea la tabla de consultas si no existe (idempotente)."""
+    """Crea la tabla de consultas si no existe (idempotente) y migra columnas nuevas."""
     ddl = f"""
         CREATE TABLE IF NOT EXISTS {NOMBRE_TABLA} (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +78,9 @@ def inicializar_bd() -> None:
             no2           REAL,
             o3            REAL,
             co            REAL,
+            hora          INTEGER,
+            mes           INTEGER,
+            estacion      TEXT,
             clase         INTEGER,
             etiqueta      TEXT,
             probabilidad  REAL,
@@ -76,20 +91,31 @@ def inicializar_bd() -> None:
     try:
         with conectar() as conexion:
             conexion.execute(ddl)
+            _migrar_columnas_nuevas(conexion)
     except sqlite3.Error as error:
         raise RuntimeError(f"No se pudo inicializar la base de datos: {error}")
+
+
+def _migrar_columnas_nuevas(conexion: sqlite3.Connection) -> None:
+    """Agrega hora/mes/estacion a bases de datos creadas antes de este cambio."""
+    existentes = {fila["name"] for fila in conexion.execute(f"PRAGMA table_info({NOMBRE_TABLA})")}
+    columnas_nuevas = {"hora": "INTEGER", "mes": "INTEGER", "estacion": "TEXT"}
+    for columna, tipo in columnas_nuevas.items():
+        if columna not in existentes:
+            conexion.execute(f"ALTER TABLE {NOMBRE_TABLA} ADD COLUMN {columna} {tipo}")
 
 
 def insertar_consulta(registro: dict[str, Any]) -> int:
     columnas = (
         "nombre, correo, tipo_consulta, mensaje, "
-        "pm_10, so2, no2, o3, co, "
+        "pm_10, so2, no2, o3, co, hora, mes, estacion, "
         "clase, etiqueta, probabilidad, umbral, timestamp"
     )
-    marcadores = ", ".join(["?"] * 14)
+    marcadores = ", ".join(["?"] * 17)
     valores = (
         registro["nombre"], registro["correo"], registro["tipo_consulta"], registro["mensaje"],
         registro["pm_10"], registro["so2"], registro["no2"], registro["o3"], registro["co"],
+        registro["hora"], registro["mes"], registro["estacion"],
         registro["clase"], registro["etiqueta"], registro["probabilidad"], registro["umbral"],
         registro["timestamp"],
     )
